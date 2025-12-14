@@ -185,41 +185,51 @@ function FlagsManager:InitSaveSystem(tab)
     local SaveManager_ConfigName = ""
 
     local ConfigSection = tab:AddSection({
-        Title = "Configurations",
-        Description = "Section for using your saved configs, or those you copied and added to the sections folder.",
+        Title = "Configuration Manager",
+        Description = "Manage your saved configurations",
         Default = true,
         Locked = false
     })
 
+    -- Textbox para nome da config
     ConfigSection:AddTextbox({
         Title = "Config Name",
-        Description = "Before you click on the create config button, enter a name!",
-        PlaceHolder = "Enter config name...",
+        Description = "Enter a name for your configuration",
+        PlaceHolder = "my_config",
         Default = "",
         Callback = function(val)
             SaveManager_ConfigName = val
         end
     })
 
+    -- Dropdown com lista de configs
     ConfigSection:AddDropdown("SaveManager_ConfigurationList", {
         Title = "Configuration List",
-        Description = "List with all configurations from the folder.",
+        Description = "Select a configuration to load",
         Options = FlagsManager:RefreshConfigList(),
         Default = "",
+        Callback = function(val)
+            -- Atualiza o nome quando seleciona da lista
+            SaveManager_ConfigName = val
+        end
     })
 
-    -- ✅ CORREÇÃO: Usar AddGroupButton corretamente
-    local ButtonGroup = ConfigSection:AddGroupButton()
-
-    -- ✅ Adicionar botões diretamente no Container do grupo
-    ButtonGroup:AddButton({
-        Title = "Create Config",
+    -- BOTÕES ADICIONADOS DIRETAMENTE NA SECTION (não usar AddGroupButton)
+    
+    -- Botão: Criar Config
+    local ButtonSection1 = tab:AddSection({
+        Title = "",
+        Locked = true
+    })
+    
+    ButtonSection1:AddButton({
+        Title = "Create New Config",
         Variant = "Primary",
         Callback = function()
             local name = SaveManager_ConfigName
 
             if name:gsub(" ", "") == "" then
-                FlagsManager.Library:Notification("Config Manager", "Invalid config name (empty)", 3)
+                FlagsManager.Library:Notification("Config Manager", "Please enter a config name first!", 3)
                 return
             end
 
@@ -229,21 +239,22 @@ function FlagsManager:InitSaveSystem(tab)
                 return
             end
 
-            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' created!", 3)
+            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' created successfully!", 3)
             
+            -- Atualiza a lista
             FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList(), true)
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
         end,
     })
 
-    ButtonGroup:AddButton({
-        Title = "Load Config",
+    -- Botão: Carregar Config
+    ButtonSection1:AddButton({
+        Title = "Load Selected Config",
         Variant = "Outline",
         Callback = function()
             local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
             if not name or name == "" then
-                FlagsManager.Library:Notification("Config Manager", "Select a config first", 3)
+                FlagsManager.Library:Notification("Config Manager", "Please select a config from the list!", 3)
                 return
             end
 
@@ -253,18 +264,19 @@ function FlagsManager:InitSaveSystem(tab)
                 return
             end
 
-            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' loaded!", 3)
+            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' loaded successfully!", 3)
         end,
     })
 
-    ButtonGroup:AddButton({
-        Title = "Save Config",
+    -- Botão: Salvar Config (overwrite)
+    ButtonSection1:AddButton({
+        Title = "Overwrite Selected Config",
         Variant = "Outline",
         Callback = function()
             local name = FlagsManager.Flags.SaveManager_ConfigurationList.Value
 
             if not name or name == "" then
-                FlagsManager.Library:Notification("Config Manager", "Select a config first", 3)
+                FlagsManager.Library:Notification("Config Manager", "Please select a config from the list!", 3)
                 return
             end
 
@@ -274,17 +286,17 @@ function FlagsManager:InitSaveSystem(tab)
                 return
             end
 
-            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' saved!", 3)
+            FlagsManager.Library:Notification("Config Manager", "Config '" .. name .. "' saved successfully!", 3)
         end,
     })
 
-    ButtonGroup:AddButton({
-        Title = "Refresh List",
+    -- Botão: Atualizar Lista
+    ButtonSection1:AddButton({
+        Title = "Refresh Config List",
         Variant = "Ghost",
         Callback = function()
             FlagsManager.Flags.SaveManager_ConfigurationList:Refresh(FlagsManager:RefreshConfigList(), true)
-            FlagsManager.Flags.SaveManager_ConfigurationList:Set("")
-            FlagsManager.Library:Notification("Config Manager", "List refreshed!", 2)
+            FlagsManager.Library:Notification("Config Manager", "Config list refreshed!", 2)
         end,
     })
 
