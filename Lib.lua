@@ -10,7 +10,7 @@ local ClosureBindings = {
 function generateRandomString(length)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
     local randomString = ""
-    math.randomseed(os.time()) -- Seed the random generator (consider calling once at script start for efficiency)
+    math.randomseed(os.time()) 
 
     for i = 1, length do
         local randomIndex = math.random(1, #charset)
@@ -34,7 +34,6 @@ local isMobile = Tools.isMobile()
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
 local function MakeDraggable(DragPoint, Main)
-	-- if isMobile then return end
 	local Dragging, DragInput, MousePos, FramePos = false
 	AddConnection(DragPoint.InputBegan, function(Input)
 		if
@@ -80,7 +79,7 @@ local Library = {
 
 local GUI = Create("ScreenGui", {
 	Name = generateRandomString(16),
-	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
+	Parent = gethui(),
 	ResetOnSpawn = false,
 	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
@@ -100,7 +99,7 @@ function Library:AddTheme(themeName, themeProps)
 end
 
 function Library:IsRunning()
-	return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
+	return GUI.Parent == gethui()
 end
 
 task.spawn(function()
@@ -126,7 +125,7 @@ for _, ElementComponent in ipairs(ElementsTable) do
 		ElementComponent.Container = self.Container
 		ElementComponent.Type = self.Type
 		ElementComponent.ScrollFrame = self.ScrollFrame
-		ElementComponent.Library = Library -- Assign Library correctly
+		ElementComponent.Library = Library 
 
 		return ElementComponent:New(Idx, Config)
 	end
@@ -138,7 +137,6 @@ function Library:Callback(Callback, ...)
 	local success, result = pcall(Callback, ...)
 
 	if success then
-		-- print(`Callback executed successfully!`)
 		return result
 	else
 		local errorMessage = tostring(result)
@@ -180,7 +178,6 @@ function Library:Load(cfgs)
 
 	local canvas_group = Create("CanvasGroup", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		-- BackgroundColor3 = Color3.fromRGB(9, 9, 9),
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
@@ -193,8 +190,6 @@ function Library:Load(cfgs)
 			CornerRadius = UDim.new(0, 6),
 		}),
 	})
-
-	-- shared.Window = canvas_group
 
 	if isMobile then
 		canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
@@ -229,24 +224,16 @@ function Library:Load(cfgs)
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-		-- local fadeTo = isVisible and 1 or 0 -- Commented out in original, but if active, would need careful handling.
 	
 		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 	
 		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-		-- local fadeTween = TweenService:Create(canvas_group, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeTween = TweenService:Create(togglebtn, tweenInfo, { BackgroundTransparency = fadeTo })
-		-- local toggleFadeSTween = TweenService:Create(togglebtn.UIStroke, tweenInfo, { Transparency = fadeTo })
-	
+		
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
 		positionTween:Play()
-		-- fadeTween:Play()
-		-- toggleFadeTween:Play()
-		-- toggleFadeSTween:Play()
 		
-	
 		positionTween.Completed:Connect(function()
 			if isVisible then
 				canvas_group.Visible = false
@@ -256,7 +243,6 @@ function Library:Load(cfgs)
 	end
 
 	ToggleVisibility()
-	-- ToggleVisibility()
 
 	MakeDraggable(togglebtn, togglebtn)
 	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
@@ -379,7 +365,6 @@ function Library:Load(cfgs)
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = {
 				Color = "bordercolor",
 			},
@@ -389,7 +374,7 @@ function Library:Load(cfgs)
 
 	local TabHolder = Create("ScrollingFrame", {
 		ThemeProps = {
-			ScrollBarImageColor3 = "scrollcolor",
+			ScrollBarImageColor3 = "scrollocolor",
 			BackgroundColor3 = "maincolor",
 		},
 		ScrollBarThickness = 2,
@@ -438,7 +423,8 @@ function Library:Load(cfgs)
 
     local ConfigManagerModule = require(Components.configmanager)
     function Library:AddConfigManagerTab(tab)
-        ConfigManagerModule:SetLibrary(self) -- Pass the library instance to ConfigManager
+        Library.FlagsManager = ConfigManagerModule 
+        ConfigManagerModule:SetLibrary(self) 
         ConfigManagerModule:InitSaveSystem(tab)
     end
 
@@ -456,7 +442,6 @@ local DialogModule = {}
 local ActiveDialog = nil
 
 function DialogModule:Create(config, parent)
-    -- Remove existing dialog if any
     if ActiveDialog then
         ActiveDialog:Destroy()
     end
@@ -476,13 +461,12 @@ function DialogModule:Create(config, parent)
     scrolling_frame.ZIndex = 100
     scrolling_frame.Parent = parent
 
-    -- Add a full-frame button to prevent clicks passing through
     local blocker = Instance.new("TextButton")
     blocker.Size = UDim2.new(1, 0, 1, 0)
     blocker.Position = UDim2.new(0, 0, 0, 0)
-    blocker.BackgroundTransparency = 1 -- Fully transparent
-    blocker.Text = "" -- No text
-    blocker.AutoButtonColor = false -- Prevents hover effects
+    blocker.BackgroundTransparency = 1
+    blocker.Text = ""
+    blocker.AutoButtonColor = false
     blocker.Parent = scrolling_frame
 
     local uipadding_3 = Instance.new("UIPadding")
@@ -512,7 +496,6 @@ function DialogModule:Create(config, parent)
     uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
     uilist_layout.Parent = dialog
 
-    -- Create top bar with title
     Create("Frame", {
         Size = UDim2.new(1, 0, 0, 40),
         ThemeProps = { BackgroundColor3 = "maincolor" },
@@ -535,7 +518,6 @@ function DialogModule:Create(config, parent)
         }),
     })
 
-    -- Create content container
     local content = Create("TextLabel", {
         Text = config.Content,
         TextSize = 14,
@@ -559,7 +541,6 @@ function DialogModule:Create(config, parent)
     uipadding.PaddingTop = UDim.new(0, 8)
     uipadding.Parent = content
 
-    -- Create button container
     local buttonContainer = Create("Frame", {
         Size = UDim2.new(1, 0, 0, 52),
         AutomaticSize = Enum.AutomaticSize.Y,
@@ -585,14 +566,12 @@ function DialogModule:Create(config, parent)
         }),
     })
 
-    -- Add buttons
     for i, buttonConfig in ipairs(config.Buttons) do
         local wrappedCallback = function()
             buttonConfig.Callback()
             scrolling_frame:Destroy()
         end
 
-        -- Create a new button instance with the container
         local button = setmetatable({
             Container = buttonContainer
         }, ButtonComponent):New({
@@ -690,7 +669,6 @@ return function(title, desc, parent)
 		Font = Enum.Font.Gotham,
 		RichText = true,
 		Name = "Description",
-		-- TextColor3 = Color3.fromRGB(168, 168, 168),
 		ThemeProps = {
 			TextColor3 = "elementdescription",
 			BackgroundColor3 = "maincolor",
@@ -777,7 +755,7 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
     local main = Create("CanvasGroup", {
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundColor3 = Color3.fromRGB(9, 9, 9),
-        BackgroundTransparency = 1, -- Начальная прозрачность для эффекта появления
+        BackgroundTransparency = 1, 
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.new(0, 300, 0, 0),
@@ -890,7 +868,6 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
         }),
     })
 
-    -- Анимация плавного появления для всех элементов
     local fadeInTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
     local fadeInTween = TweenService:Create(main, fadeInTweenInfo, {BackgroundTransparency = 0.4})
     fadeInTween:Play()
@@ -904,19 +881,14 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
     local fadeInTweenUser = TweenService:Create(user, fadeInTweenInfo, {ImageTransparency = 0})
     fadeInTweenUser:Play()
 
-    -- Tween для прогресса
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
     local tween = TweenService:Create(progressindicator, tweenInfo, {Size = UDim2.new(0, 0, 0, 2)})
     tween:Play()
 
-    -- Удаление уведомления после завершения Tween
     tween.Completed:Connect(function()
         main:Destroy()
     end)
 
-    -- if not game:GetService("RunService"):IsStudio() then
-    --require(script.Parent.Parent.Packages.blurModule):ModifyFrame(main)
-    -- end
 end
 
 return Notif
@@ -1007,14 +979,12 @@ return function(cfgs, Parent)
 		Rotation = 90,
 		Name = "chevron-down",
 		ZIndex = 99,
-		-- Parent = topbox,
 	})
 	
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		LineHeight = 1.2000000476837158,
 		RichText = true,
-		-- TextColor3 = Color3.fromRGB(234, 234, 234),
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
@@ -1038,7 +1008,7 @@ return function(cfgs, Parent)
 	local description = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		RichText = true,
-		-- TextColor3 = Color3.fromRGB(168, 168, 168),
+		Name = "Description",
 		ThemeProps = {
 			TextColor3 = "descriptioncolor",
 			BackgroundColor3 = "maincolor",
@@ -1061,10 +1031,6 @@ return function(cfgs, Parent)
 	end
 
 	if cfgs.Title ~= nil and cfgs.Title ~= "" then
-		-- topbox.AutomaticSize = Enum.AutomaticSize.Y
-
-		-- name.AutomaticSize = Enum.AutomaticSize.Y
-		-- name.TextWrapped = true
 		name.Size = UDim2.new(1, 0, 0, 16)
 		name.Text = cfgs.Title
 		name.TextSize = cfgs.TitleTextSize
@@ -1072,7 +1038,6 @@ return function(cfgs, Parent)
 	end
 
 	Section.SectionContainer = Create("Frame", {
-		-- AutomaticSize = Enum.AutomaticSize.Y,
 		Name = "SectionContainer",
 		ClipsDescendants = true,
 		BackgroundTransparency = 1,
@@ -1088,7 +1053,7 @@ return function(cfgs, Parent)
 		Create("UIListLayout", {
 			Padding = UDim.new(0, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-		}, {}),
+		}),
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 1),
 			PaddingLeft = UDim.new(0, 6),
@@ -1106,12 +1071,10 @@ return function(cfgs, Parent)
 		isExpanded = not isExpanded
 		local targetRotation = isExpanded and 0 or 90
 		
-		-- Animate chevron rotation
 		game:GetService("TweenService"):Create(chevronIcon, TweenInfo.new(0.3), {
 			Rotation = targetRotation
 		}):Play()
 		
-		-- Animate section container
 		local targetSize = isExpanded and UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18) or UDim2.new(1, 0, 0, 0)
 		game:GetService("TweenService"):Create(Section.SectionContainer, TweenInfo.new(0.3), {
 			Size = targetSize
@@ -1143,7 +1106,6 @@ local AddConnection = Tools.AddConnection
 local AddScrollAnim = Tools.AddScrollAnim
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
--- Add debug toggle
 local SEARCH_DEBUG = false
 
 local function debugLog(...)
@@ -1239,13 +1201,12 @@ function TabModule:New(Title, Parent)
 		Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 28)
 	end)
 
-	-- Add search container at the top of the tab container
 	Tab.SearchContainer = Create("Frame", {
-		Name = "SearchContainer", -- Added name to easily identify it
+		Name = "SearchContainer",
 		Size = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1,
-		Parent = Tab.Container, -- CORRECTED PARENT: Should be a child of Tab.Container
-		LayoutOrder = -1, -- Make sure it appears at the top
+		Parent = Tab.Container,
+		LayoutOrder = -1, 
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
@@ -1261,11 +1222,10 @@ function TabModule:New(Title, Parent)
 		TextSize = 14,
 		BackgroundTransparency = 1,
 		ThemeProps = {
-			-- BackgroundColor3 = "elementbackground",
 			TextColor3 = "titlecolor",
 			PlaceholderColor3 = "descriptioncolor",
 		},
-		Parent = Tab.SearchContainer, -- Correct, child of SearchContainer
+		Parent = Tab.SearchContainer,
 		ClearTextOnFocus = false,
 	}, {
 		Create("UIPadding", {
@@ -1282,7 +1242,6 @@ function TabModule:New(Title, Parent)
 		}),
 	})
 
-	-- Function to filter elements based on search text
 	local function searchInElement(element, searchText)
 		local title = element:FindFirstChild("Title", true)
 		local desc = element:FindFirstChild("Description", true)
@@ -1307,7 +1266,9 @@ function TabModule:New(Title, Parent)
 		return false
 	end
 
-	local function updateSearch()
+    local updateSearch -- Declaração antecipada
+
+	updateSearch = function()
 		local searchText = string.lower(SearchBox.Text)
 		debugLog("Search text:", searchText)
 
@@ -1316,18 +1277,14 @@ function TabModule:New(Title, Parent)
 			return
 		end
 
-		-- Loop through all children in the container
 		for _, child in ipairs(Tab.Container:GetChildren()) do
-			-- Ensure we don't try to search the SearchContainer itself
-			if child ~= Tab.SearchContainer then -- CORRECTED: Check against Tab.SearchContainer
+			if child ~= Tab.SearchContainer then
 				if child.Name == "Section" then
-					-- Handle section elements
 					local sectionContainer = child:FindFirstChild("SectionContainer")
 					if sectionContainer then
 						local visible = false
 						debugLog("Checking section:", child.Name)
 
-						-- Search through elements in section
 						for _, element in ipairs(sectionContainer:GetChildren()) do
 							if element.Name == "Element" then
 								local elementVisible = searchInElement(element, searchText)
@@ -1338,12 +1295,10 @@ function TabModule:New(Title, Parent)
 							end
 						end
 
-						-- Show section if any elements match or search is empty
 						child.Visible = visible or searchText == ""
 						debugLog("Section visibility:", child.Visible)
 					end
 				elseif child.Name == "Element" then
-					-- Handle standalone elements
 					local elementVisible = searchInElement(child, searchText)
 					child.Visible = elementVisible or searchText == ""
 					debugLog("Standalone element visibility:", child.Visible)
@@ -1352,7 +1307,8 @@ function TabModule:New(Title, Parent)
 		end
 	end
 
-	-- Update search when tab is selected
+	Tab.updateSearch = updateSearch
+
 	AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
 		if Tab.Container.Visible then
 			updateSearch()
@@ -1410,7 +1366,6 @@ function TabModule:New(Title, Parent)
 		return Section
 	end
 
-	-- setmetatable(Tab, Elements)
 	return Tab
 end
 
@@ -1430,7 +1385,6 @@ function TabModule:SelectTab(Tab)
         ):Play()
         v.Selected = false
         
-        -- Hide search container for non-selected tabs
         if v.SearchContainer then
             v.SearchContainer.Visible = false
         end
@@ -1453,10 +1407,11 @@ function TabModule:SelectTab(Tab)
             Container.Visible = false
         end
 
-        -- Show search container for selected tab
         if selectedTab.SearchContainer then
             selectedTab.SearchContainer.Visible = true
-            updateSearch() -- Trigger search update when tab becomes visible
+            if selectedTab.updateSearch then
+                selectedTab.updateSearch()
+            end
         end
 
         TabModule.Containers[Tab].Visible = true
@@ -1817,7 +1772,7 @@ function Element:New(Idx, Config)
         Transparency = Config.Transparency or 0,
         Type = "Colorpicker",
         Callback = Config.Callback or function(Color) end,
-        RainbowMode = false, -- Corrected: Renamed from RainbowColorPicker to avoid shadowing
+        RainbowMode = false, 
         ColorpickerToggle = false,
     }
 
@@ -1905,12 +1860,11 @@ function Element:New(Idx, Config)
 		if Enter then
 			local Success, Result = pcall(Color3.fromHex, inputHex.Text)
 			if Success and typeof(Result) == "Color3" then
-				Colorpicker:Set(Result) -- Use Set method
+				Colorpicker:Set(Result) 
 			end
 		end
 	end)
 
-	-- Colorpicker
 	local colorpicker_frame = Create("TextButton", {
 		AutoButtonColor = false,
 		Text = "",
@@ -2095,45 +2049,41 @@ function Element:New(Idx, Config)
         end
         
         local newColor = Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib)
-        Colorpicker.Value = newColor -- Corrected: Update the stored value
+        Colorpicker.Value = newColor 
         colorBox.BackgroundColor3 = newColor
         color.BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1)
         color_selection.BackgroundColor3 = newColor
         
-        -- Update hex input safely
         if inputHex then
             inputHex.Text = "#" .. newColor:ToHex()
         end
         
-        -- Call callback safely
         pcall(Colorpicker.Callback, newColor)
     end
 	
 	local function UpdateColorPickerPosition()
-		if Colorpicker.RainbowMode then return end -- Don't update manually if in rainbow mode
+		if Colorpicker.RainbowMode then return end
 		local ColorX = math.clamp(mouse.X - color.AbsolutePosition.X, 0, color.AbsoluteSize.X)
 		local ColorY = math.clamp(mouse.Y - color.AbsolutePosition.Y, 0, color.AbsoluteSize.Y)
 		color_selection.Position = UDim2.new(ColorX / color.AbsoluteSize.X, 0, ColorY / color.AbsoluteSize.Y, 0)
 		Colorpicker.Sat = ColorX / color.AbsoluteSize.X
 		Colorpicker.Vib = 1 - (ColorY / color.AbsoluteSize.Y)
 		UpdateColorPicker()
-		inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
 	end
 	
 	local function UpdateHuePickerPosition()
-		if Colorpicker.RainbowMode then return end -- Don't update manually if in rainbow mode
+		if Colorpicker.RainbowMode then return end
 		local HueY = math.clamp(mouse.Y - hue.AbsolutePosition.Y, 0, hue.AbsoluteSize.Y)
 		hue_selection.Position = UDim2.new(0.5, 0, HueY / hue.AbsoluteSize.Y, 0)
 		Colorpicker.Hue = HueY / hue.AbsoluteSize.Y
 		UpdateColorPicker()
-		inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
 	end
 	
 	local ColorInput, HueInput = nil, nil
 	
 	AddConnection(color.InputBegan, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if Colorpicker.RainbowMode then -- Corrected: Check table property
+			if Colorpicker.RainbowMode then 
 				return
 			end
 			if ColorInput then
@@ -2155,7 +2105,7 @@ function Element:New(Idx, Config)
 	
 	AddConnection(hue.InputBegan, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if Colorpicker.RainbowMode then -- Corrected: Check table property
+			if Colorpicker.RainbowMode then 
 				return
 			end
 			if HueInput then
@@ -2181,7 +2131,7 @@ function Element:New(Idx, Config)
 	end)
 
 	AddConnection(rainbowtoggle.MouseButton1Click, function()
-		Colorpicker.RainbowMode = not Colorpicker.RainbowMode -- Corrected: Update table property
+		Colorpicker.RainbowMode = not Colorpicker.RainbowMode 
 		TweenService:Create(
 			togglebox,
 			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -2189,9 +2139,8 @@ function Element:New(Idx, Config)
 		):Play()
 		if Colorpicker.RainbowMode then
 			local function UpdateRainbowColor()
-				while Colorpicker.RainbowMode do -- Corrected: Check table property
+				while Colorpicker.RainbowMode do 
 					Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = RainbowColorValue, 1, 1
-					-- Corrected: hue_selection position should reflect the current Hue value for visual consistency
 					hue_selection.Position = UDim2.new(0.5, 0, Colorpicker.Hue, 0)
 					UpdateColorPicker()
 					wait()
@@ -2207,15 +2156,14 @@ function Element:New(Idx, Config)
             return
         end
         
-        self.Value = newColor -- Corrected: Update the stored value
+        self.Value = newColor 
         self:SetHSVFromRGB(newColor)
         
-        -- Update UI elements safely
         if color_selection and colorBox and hue_selection then
             color_selection.Position = UDim2.new(self.Sat, 0, 1 - self.Vib, 0)
-            color.BackgroundColor3 = Color3.fromHSV(self.Hue, 1, 1) -- Update base color of saturation picker
+            color.BackgroundColor3 = Color3.fromHSV(self.Hue, 1, 1)
             hue_selection.Position = UDim2.new(0.5, 0, self.Hue, 0)
-            UpdateColorPicker() -- This will also update inputHex and call callback
+            UpdateColorPicker() 
         end
     end
 
@@ -2256,8 +2204,8 @@ function Element:New(Idx, Config)
 		Buttons = {},
 		Toggled = false,
 		Type = "Dropdown",
-		Multiple = Config.Multiple,  -- Add Multiple flag
-		Callback = Config.Callback   -- Store callback
+		Multiple = Config.Multiple,  
+		Callback = Config.Callback   
 	}
 	local MaxElements = 5
 
@@ -2277,7 +2225,6 @@ function Element:New(Idx, Config)
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			-- Color = Color3.fromRGB(24, 24, 26),
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
@@ -2356,21 +2303,16 @@ function Element:New(Idx, Config)
 	})
 
 	local dropcont = Create("Frame", {
-		-- Text = "",
-		-- AutoButtonColor = false,
 		AutomaticSize = Enum.AutomaticSize.Y,
-		-- BackgroundColor3 = Color3.fromRGB(28, 25, 23),
 		ThemeProps = { BackgroundColor3 = "containeritemsbg" },
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
-		-- Position = UDim2.new(0, 0, 0, 80),
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = false,
 		Parent = DropdownFrame.Frame,
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
@@ -2486,7 +2428,7 @@ function Element:New(Idx, Config)
 						table.remove(Dropdown.Value, index)
 						Dropdown:Set(Dropdown.Value)
 						if #Dropdown.Value == 0 then
-							Config.Callback("") -- Changed to "" for clarity when empty
+							Config.Callback({}) 
 						end
 					else
 						Dropdown:Set(Option)
@@ -2557,7 +2499,6 @@ function Element:New(Idx, Config)
 				TextColor3 = Color3.fromRGB(255, 255, 255),
 				TextSize = 14,
 				AutomaticSize = Enum.AutomaticSize.X,
-				-- BackgroundColor3 = Color3.fromRGB(39, 39, 42),
 				ThemeProps = { BackgroundColor3 = "valuebg" },
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
 				BorderSizePixel = 0,
@@ -2624,15 +2565,6 @@ function Element:New(Idx, Config)
 				}, {}),
 			})
 
-			-- AddConnection(closebtn.MouseButton1Click, function()
-			-- 	if Config.Multiple then
-			-- 		local index = table.find(Dropdown.Value, text)
-			-- 		if index then
-			-- 			tagBtn:Destroy()
-			-- 			table.remove(Dropdown.Value, index)
-			-- 		end
-			-- 	end
-			-- end)
 			AddConnection(tagBtn.MouseButton1Click, function()
 				if Config.Multiple then
 					local index = table.find(Dropdown.Value, text)
@@ -2640,7 +2572,7 @@ function Element:New(Idx, Config)
 						table.remove(Dropdown.Value, index)
 						Dropdown:Set(Dropdown.Value)
 						if #Dropdown.Value == 0 then
-							Config.Callback("")
+							Config.Callback({})
 						end
 					end
 				else
@@ -2656,7 +2588,7 @@ function Element:New(Idx, Config)
 						table.remove(Dropdown.Value, index)
 						Dropdown:Set(Dropdown.Value)
 						if #Dropdown.Value == 0 then
-							Config.Callback("")
+							Config.Callback({})
 						end
 					end
 				else
@@ -2666,11 +2598,10 @@ function Element:New(Idx, Config)
 			end)
 		end
 
-        -- Handle the Value assignment properly for both single and multiple modes
         if Config.Multiple then
             if type(Value) == "table" then
                 Dropdown.Value = Value
-            elseif Value ~= "" then  -- Only modify if not clearing
+            elseif Value ~= "" then  
                 if type(Dropdown.Value) ~= "table" then
                     Dropdown.Value = {}
                 end
@@ -2683,10 +2614,9 @@ function Element:New(Idx, Config)
                     end
                 end
             else
-                Dropdown.Value = {}  -- Clear the selection
+                Dropdown.Value = {} 
             end
         else
-            -- For single selection, just set the value directly
             Dropdown.Value = Value
         end
 
@@ -2806,7 +2736,7 @@ function Element:New(Idx, Config)
     local ValueText = Create("TextLabel", {
         Font = Enum.Font.Gotham,
         RichText = true,
-        Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(Config.Default), Config.Max), -- Corrected: Initial text
+        Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(Config.Default), Config.Max), 
         ThemeProps = {
             TextColor3 = "titlecolor",
         },
@@ -2870,14 +2800,13 @@ function Element:New(Idx, Config)
         }),
     })
 
-    -- Adjusted dot size to 14x14 (smaller than 20x20 but larger than original 10x10)
     local SliderDot = Create("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         ThemeProps = { BackgroundColor3 = "sliderdotbg" },
         BorderColor3 = Color3.fromRGB(0, 0, 0),
         BorderSizePixel = 0,
         Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.new(0, 10, 0, 10),  -- Adjusted size
+        Size = UDim2.new(0, 10, 0, 10), 
         Visible = true,
         Parent = SliderBar,
     }, {
@@ -2897,16 +2826,14 @@ function Element:New(Idx, Config)
 
     function Slider:Set(Value, ignore)
         self.Value = math.clamp(Round(Value, Config.Increment), Config.Min, Config.Max)
-        ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max) -- Corrected: Update text
+        ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max) 
         
         local newPosition = (self.Value - Config.Min) / (Config.Max - Config.Min)
         
         if DraggingDot then
-            -- Instant update when dragging dot
             SliderDot.Position = UDim2.new(newPosition, 0, 0.5, 0)
             SliderProgress.Size = UDim2.fromScale(newPosition, 1)
         else
-            -- Smooth tween when not dragging
             TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(newPosition, 0, 0.5, 0)
             }):Play()
@@ -3076,7 +3003,7 @@ function Element:New(Idx, Config)
         Type = "Toggle",
     }
 
-    local ToggleFrame = require(Components.element)(Config.Title, Config.Description, self.Container) -- Corrected: Removed extra spaces
+    local ToggleFrame = require(Components.element)(Config.Title, Config.Description, self.Container) 
 
     local box_frame = Create("Frame", {
         ThemeProps = {
@@ -3103,9 +3030,8 @@ function Element:New(Idx, Config)
             Archivable = true,
         }),
         Create("ImageLabel", {
-            Name = "Checkmark", -- Added a name for easier access
+            Name = "Checkmark",
             Image = "http://www.roblox.com/asset/?id=6031094667",
-            -- ImageColor3 = Color3.fromRGB(9, 9, 9),
             ThemeProps = {
                 ImageColor3 = "maincolor"
             },
@@ -3120,12 +3046,12 @@ function Element:New(Idx, Config)
         })
     })
 
-    local checkmarkImage = box_frame:FindFirstChild("Checkmark") -- Get the checkmark image instance
+    local checkmarkImage = box_frame:FindFirstChild("Checkmark") 
 
     function Toggle:Set(Value, ignore)
         self.Value = Value
         TweenService:Create(box_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = self.Value and 0 or 1}):Play()
-        if checkmarkImage then -- Corrected: Tween checkmark image transparency
+        if checkmarkImage then 
             TweenService:Create(checkmarkImage, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {ImageTransparency = self.Value and 0 or 1}):Play()
         end
         if not ignore and (not self.IgnoreFirst or not self.FirstUpdate) then
@@ -3185,14 +3111,12 @@ end
 
 function tools.isMobile()
     return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-	-- return true
 end
 
 function tools.AddConnection(Signal, Function)
-	-- if not Library:IsRunning() then return end
 	local connection = Signal:Connect(Function)
 	table.insert(tools.Signals, connection)
-	return connection -- Return the connection so it can be disconnected later
+	return connection 
 end
 
 function tools.Disconnect()
@@ -3287,6 +3211,8 @@ local httpService = game:GetService("HttpService")
 
 local FlagsManager = {}
 
+local SaveManager_ConfigName = "" 
+
 FlagsManager.Folder = "3itx"
 FlagsManager.Ignore = {}
 FlagsManager.Flags = {}
@@ -3308,7 +3234,7 @@ FlagsManager.Parser = {
         end,
         Load = function(idx, data)
             if FlagsManager.Flags[idx] then
-                FlagsManager.Flags[idx]:Set(tonumber(data.value)) -- Ensure value is number
+                FlagsManager.Flags[idx]:Set(tonumber(data.value)) 
             end
         end,
     },
@@ -3342,7 +3268,7 @@ FlagsManager.Parser = {
             end
         end,
     },
-    Textbox = { -- Added Textbox support for saving/loading
+    Textbox = { 
         Save = function(idx, object)
             return { type = "Textbox", idx = idx, value = object.Value }
         end,
@@ -3470,16 +3396,12 @@ function FlagsManager:SetLibrary(library)
 end
 
 function FlagsManager:InitSaveSystem(tab)
-    -- assert(FlagsManager.Library, "Must set SaveManager.Library")
-    local SaveManager_ConfigName = ""
-
     local ConfigSection = tab:AddSection({
         Title = "Configurations",
         Description = "Section for using your saved configs, or those you copied and added to the sections folder.",
     })
 
-    -- This Textbox uses an internal Callback to update SaveManager_ConfigName
-    ConfigSection:AddTextbox("SaveManager_ConfigNameInput", { -- Added Idx to Textbox
+    local ConfigNameTextbox = ConfigSection:AddTextbox("SaveManager_ConfigNameInput", { 
         Title = "Config Name",
         Description = "Before you click on the create config button, enter a name!",
         Callback = function(val)
@@ -3500,7 +3422,7 @@ function FlagsManager:InitSaveSystem(tab)
         Title = "Create a Configuration",
         Variant = "Primary",
         Callback = function()
-            local name = SaveManager_ConfigName -- Use the variable updated by the Textbox
+            local name = SaveManager_ConfigName 
 
             if name:gsub(" ", "") == "" then
                 return print("Invalid config name (empty)")
@@ -3566,9 +3488,8 @@ end
 return FlagsManager
 
 end)()
-} -- [RefId] = Closure
+}
 
--- Holds the actual DOM data
 local ObjectTree = {
     {
         1,
@@ -3619,9 +3540,9 @@ local ObjectTree = {
                             "tab"
                         }
                     },
-                    { -- NEW ENTRY FOR CONFIGMANAGER
-                        18, -- RefId for configmanager
-                        2, -- ModuleScript
+                    { 
+                        18,
+                        2,
                         {
                             "configmanager"
                         }
@@ -3704,9 +3625,8 @@ local ObjectTree = {
     }
 }
 
--- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
-    8, -- Closure 1 starts on line 8 (after header)
+    8,
     [3] = 454,
     [4] = 607,
     [5] = 733,
@@ -3722,22 +3642,18 @@ local LineOffsets = {
     [15] = 2961,
     [16] = 3048,
     [17] = 3138,
-    [18] = 3452, -- Calculated line number for the start of ConfigManager's code
+    [18] = 3452,
 }
 
--- Misc AOT variable imports
 local WaxVersion = "0.4.1"
 local EnvName = "WaxRuntime"
 
--- ++++++++ RUNTIME IMPL BELOW ++++++++ --
-
--- Localizing certain libraries and built-ins for runtime efficiency
 local string, task, setmetatable, error, next, table, unpack, coroutine, script, type, require, pcall, tostring, tonumber, _VERSION =
       string, task, setmetatable, error, next, table, unpack, coroutine, script, type, require, pcall, tostring, tonumber, _VERSION
 
 local table_insert = table.insert
 local table_remove = table.remove
-local table_freeze = table.freeze or function(t) return t end -- lol
+local table_freeze = table.freeze or function(t) return t end 
 
 local coroutine_wrap = coroutine.wrap
 
@@ -3745,8 +3661,6 @@ local string_sub = string.sub
 local string_match = string.match
 local string_gmatch = string.gmatch
 
--- The Lune runtime has its own `task` impl, but it must be imported by its builtin
--- module path, "@lune/task"
 if _VERSION and string_sub(_VERSION, 1, 4) == "Lune" then
     local RequireSuccess, LuneTaskLib = pcall(require, "@lune/task")
     if RequireSuccess and LuneTaskLib then
@@ -3756,12 +3670,10 @@ end
 
 local task_defer = task and task.defer
 
--- If we're not running on the Roblox engine, we won't have a `task` global
 local Defer = task_defer or function(f, ...)
     coroutine_wrap(f)(...)
 end
 
--- ClassName "IDs"
 local ClassNameIdBindings = {
     [1] = "Folder",
     [2] = "ModuleScript",
@@ -3770,21 +3682,17 @@ local ClassNameIdBindings = {
     [5] = "StringValue",
 }
 
-local RefBindings = {} -- [RefId] = RealObject
+local RefBindings = {} 
 
 local ScriptClosures = {}
-local ScriptClosureRefIds = {} -- [ScriptClosure] = RefId
+local ScriptClosureRefIds = {} 
 local StoredModuleValues = {}
 local ScriptsToRun = {}
 
--- wax.shared __index/__newindex
 local SharedEnvironment = {}
 
--- We're creating 'fake' instance refs soley for traversal of the DOM for require() compatibility
--- It's meant to be as lazy as possible
-local RefChildren = {} -- [Ref] = {ChildrenRef, ...}
+local RefChildren = {} 
 
--- Implemented instance methods
 local InstanceMethods = {
     GetFullName = { {}, function(self)
         local Path = self.Name
@@ -3793,7 +3701,6 @@ local InstanceMethods = {
         while ObjectPointer do
             Path = ObjectPointer.Name .. "." .. Path
 
-            -- Move up the DOM (parent will be nil at the end, and this while loop will stop)
             ObjectPointer = ObjectPointer.Parent
         end
 
@@ -3835,8 +3742,6 @@ local InstanceMethods = {
 
         if recursive then
             for Child in next, Children do
-                -- Yeah, Roblox follows this behavior- instead of searching the entire base of a
-                -- ref first, the engine uses a direct recursive call
                 return Child:FindFirstChild(name, true)
             end
         end
@@ -3853,13 +3758,11 @@ local InstanceMethods = {
         end
     end},
 
-    -- Just to implement for traversal usage
     WaitForChild = { {"string", "number?"}, function(self, name)
         return self:FindFirstChild(name)
     end},
 }
 
--- "Proxies" to instance methods, with err checks etc
 local InstanceMethodProxies = {}
 for MethodName, MethodObject in next, InstanceMethods do
     local Types = MethodObject[1]
@@ -3896,15 +3799,11 @@ for MethodName, MethodObject in next, InstanceMethods do
 end
 
 local function CreateRef(className, name, parent)
-    -- `name` and `parent` can also be set later by the init script if they're absent
 
-    -- Extras
     local StringValue_Value
 
-    -- Will be set to RefChildren later aswell
     local Children = setmetatable({}, {__mode = "k"})
 
-    -- Err funcs
     local function InvalidMember(member)
         error(member .. " is not a valid (virtual) member of " .. className .. " \"" .. name .. "\"", 3)
     end
@@ -3918,16 +3817,15 @@ local function CreateRef(className, name, parent)
     RefMetatable.__metatable = false
 
     RefMetatable.__index = function(_, index)
-        if index == "ClassName" then -- First check "properties"
+        if index == "ClassName" then 
             return className
         elseif index == "Name" then
             return name
         elseif index == "Parent" then
             return parent
         elseif className == "StringValue" and index == "Value" then
-            -- Supporting StringValue.Value for Rojo .txt file conv
             return StringValue_Value
-        else -- Lastly, check "methods"
+        else 
             local InstanceMethod = InstanceMethodProxies[index]
 
             if InstanceMethod then
@@ -3935,45 +3833,37 @@ local function CreateRef(className, name, parent)
             end
         end
 
-        -- Next we'll look thru child refs
         for Child in next, Children do
             if Child.Name == index then
                 return Child
             end
         end
 
-        -- At this point, no member was found; this is the same err format as Roblox
         InvalidMember(index)
     end
 
     RefMetatable.__newindex = function(_, index, value)
-        -- __newindex is only for props fyi
         if index == "ClassName" then
             ReadOnlyProperty(index)
         elseif index == "Name" then
             name = value
         elseif index == "Parent" then
-            -- We'll just ignore the process if it's trying to set itself
             if value == Ref then
                 return
             end
 
             if parent ~= nil then
-                -- Remove this ref from the CURRENT parent
                 RefChildren[parent][Ref] = nil
             end
 
             parent = value
 
             if value ~= nil then
-                -- And NOW we're setting the new parent
                 RefChildren[value][Ref] = true
             end
         elseif className == "StringValue" and index == "Value" then
-            -- Supporting StringValue.Value for Rojo .txt file conv
             StringValue_Value = value
         else
-            -- Same err as __index when no member is found
             InvalidMember(index)
         end
     end
@@ -3993,18 +3883,17 @@ local function CreateRef(className, name, parent)
     return Ref
 end
 
--- Create real ref DOM from object tree
 local function CreateRefFromObject(object, parent)
     local RefId = object[1]
     local ClassNameId = object[2]
-    local Properties = object[3] -- Optional
-    local Children = object[4] -- Optional
+    local Properties = object[3] 
+    local Children = object[4] 
 
     local ClassName = ClassNameIdBindings[ClassNameId]
 
     local Name = Properties and table_remove(Properties, 1) or ClassName
 
-    local Ref = CreateRef(ClassName, Name, parent) -- 3rd arg may be nil if this is from root
+    local Ref = CreateRef(ClassName, Name, parent) 
     RefBindings[RefId] = Ref
 
     if Properties then
@@ -4027,7 +3916,6 @@ for _, Object in next, ObjectTree do
     CreateRefFromObject(Object, RealObjectRoot)
 end
 
--- Now we'll set script closure refs and check if they should be ran as a BaseScript
 for RefId, Closure in next, ClosureBindings do
     local Ref = RefBindings[RefId]
 
@@ -4043,7 +3931,6 @@ end
 local function LoadScript(scriptRef)
     local ScriptClassName = scriptRef.ClassName
 
-    -- First we'll check for a cached module value (packed into a tbl)
     local StoredModuleValue = StoredModuleValues[scriptRef]
     if StoredModuleValue and ScriptClassName == "ModuleScript" then
         return unpack(StoredModuleValue)
@@ -4056,7 +3943,6 @@ local function LoadScript(scriptRef)
 
         local VirtualFullName = scriptRef:GetFullName()
 
-        -- Check for vanilla/Roblox format
         local OriginalErrorLine, BaseErrorMessage = string_match(originalErrorMessage, "[^:]+:(%d+): (.+)")
 
         if not OriginalErrorLine or not LineOffsets then
@@ -4076,7 +3962,6 @@ local function LoadScript(scriptRef)
         return VirtualFullName .. ":" .. RealErrorLine .. ": " .. BaseErrorMessage
     end
 
-    -- If it's a BaseScript, we'll just run it directly!
     if ScriptClassName == "LocalScript" or ScriptClassName == "Script" then
         local RunSuccess, ErrorMessage = pcall(Closure)
         if not RunSuccess then
@@ -4096,8 +3981,6 @@ local function LoadScript(scriptRef)
     end
 end
 
--- We'll assign the actual func from the top of this output for flattening user globals at runtime
--- Returns (in a tuple order): wax, script, require
 function ImportGlobals(refId)
     local ScriptRef = RefBindings[refId]
 
@@ -4112,7 +3995,6 @@ function ImportGlobals(refId)
         return unpack(PCallReturn)
     end
 
-    -- `wax.shared` index
     local WaxShared = table_freeze(setmetatable({}, {
         __index = SharedEnvironment,
         __newindex = function(_, index, value)
@@ -4127,13 +4009,11 @@ function ImportGlobals(refId)
     }))
 
     local Global_wax = table_freeze({
-        -- From AOT variable imports
         version = WaxVersion,
         envname = EnvName,
 
         shared = WaxShared,
 
-        -- "Real" globals instead of the env set ones
         script = script,
         require = require,
     })
@@ -4155,7 +4035,6 @@ function ImportGlobals(refId)
 
             return LoadScript(module)
         elseif ModuleArgType == "string" and string_sub(module, 1, 1) ~= "@" then
-            -- The control flow on this SUCKS
 
             if #module == 0 then
                 error("Attempted to call require with empty string", 2)
@@ -4176,7 +4055,6 @@ function ImportGlobals(refId)
                     RealIndex = "Parent"
                 end
 
-                -- Don't advance dir if it's just another "/" either
                 if RealIndex ~= "" then
                     local ResultRef = CurrentRefPointer:FindFirstChild(RealIndex)
                     if not ResultRef then
@@ -4193,7 +4071,6 @@ function ImportGlobals(refId)
                     end
                 end
 
-                -- For possible checks next cycle
                 PreviousPathMatch = PathMatch
             end
 
@@ -4209,7 +4086,6 @@ function ImportGlobals(refId)
         return RealCall(require, module, ...)
     end
 
-    -- Now, return flattened globals ready for direct runtime exec
     return Global_wax, Global_script, Global_require
 end
 
@@ -4217,5 +4093,4 @@ for _, ScriptRef in next, ScriptsToRun do
     Defer(LoadScript, ScriptRef)
 end
 
--- AoT adjustment: Load init module (MainModule behavior)
 return LoadScript(RealObjectRoot:GetChildren()[1])
