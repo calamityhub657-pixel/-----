@@ -1,3 +1,5 @@
+function Library:Load(config)
+  
 local ImportGlobals
 local ClosureBindings = {
     function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
@@ -3295,3 +3297,8 @@ for _, ScriptRef in next, ScriptsToRun do
     Defer(LoadScript, ScriptRef)
 end
 return LoadScript(RealObjectRoot:GetChildren()[1])
+
+end
+
+return Library
+
