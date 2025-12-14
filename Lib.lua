@@ -1,4 +1,3 @@
-
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 -- Will be used later for getting flattened globals
@@ -369,9 +368,9 @@ function Library:Load(cfgs)
 	})
 
 	local TabHolder = Create("ScrollingFrame", {
+		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ScrollBarThickness = 2,
 		ScrollBarImageTransparency = 1,
-		CanvasSize = UDim2.new(0, 0, 0, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Size = UDim2.new(1, 0, 1, 0),
@@ -1037,7 +1036,7 @@ return function(cfgs, Parent)
 		Create("UIListLayout", {
 			Padding = UDim.new(0, 12),
 			SortOrder = Enum.SortOrder.LayoutOrder,
-		}, {}),
+		}),
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 1),
 			PaddingLeft = UDim.new(0, 6),
@@ -1087,7 +1086,7 @@ local TweenService = game:GetService("TweenService")
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local AddScrollAnim = Tools.AddScrollAnim
+local AddScrollAnim = Tools.AddConnection
 local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
 local SEARCH_DEBUG = false
@@ -2552,6 +2551,8 @@ function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
 						if #Dropdown.Value == 0 then
 							Config.Callback("")
 						end
+					else
+						Dropdown:Set(Option)
 					end
 				else
 					Dropdown:Set("")
@@ -3095,10 +3096,10 @@ function tools.Disconnect()
 	end
 end
 
--- Na sua Lib.lua, dentro da função tools.Create
+-- CORREÇÃO APLICADA AQUI
 function tools.Create(Name, Properties, Children)
 	local Object = Instance.new(Name)
-	local themePropsToStore = Properties.ThemeProps
+	local themePropsToStore = Properties.ThemeProps -- Armazena as ThemeProps originais em uma variável local
 
 	if themePropsToStore then
 		for propName, themeKey in next, themePropsToStore do
@@ -3106,7 +3107,10 @@ function tools.Create(Name, Properties, Children)
 				Object[propName] = currentTheme[themeKey]
 			end
 		end
-		Properties.ThemeProps = nil
+		-- AQUI: Insere a variável local 'themePropsToStore' em themedObjects
+		-- Isso garante que a referência não seja afetada se Properties.ThemeProps for definida como nil depois.
+		table.insert(themedObjects, { object = Object, props = themePropsToStore }) 
+		Properties.ThemeProps = nil -- Remove a propriedade da tabela de entrada para evitar que seja aplicada como uma propriedade comum
 	end
 
 	for i, v in next, Properties or {} do
@@ -3116,9 +3120,6 @@ function tools.Create(Name, Properties, Children)
 		v.Parent = Object
 	end
 	
-	if themePropsToStore then 
-	    table.insert(themedObjects, { object = Object, props = themePropsToStore })
-	end
 	return Object
 end
 
@@ -3352,9 +3353,7 @@ local task_defer = task and task.defer
 
 local Defer = task_defer or function(f, ...)
     coroutine_wrap(f)(...)
-end
-
-local ClassNameIdBindings = {
+    local ClassNameIdBindings = {
     [1] = "Folder",
     [2] = "ModuleScript",
     [3] = "Script",
@@ -3772,4 +3771,3 @@ for _, ScriptRef in next, ScriptsToRun do
 end
 
 return LoadScript(RealObjectRoot:GetChildren()[1])
-
