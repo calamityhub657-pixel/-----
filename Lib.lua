@@ -1,6 +1,3 @@
-function Library:Load(config)
-
-
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 -- Will be used later for getting flattened globals
@@ -3774,7 +3771,3 @@ for _, ScriptRef in next, ScriptsToRun do
 end
 
 return LoadScript(RealObjectRoot:GetChildren()[1])
-
-end
-
-return Library
