@@ -3095,11 +3095,13 @@ function tools.Disconnect()
 	end
 end
 
+-- Na sua Lib.lua, dentro da função tools.Create
 function tools.Create(Name, Properties, Children)
 	local Object = Instance.new(Name)
+	local themePropsToStore = Properties.ThemeProps
 
-	if Properties.ThemeProps then
-		for propName, themeKey in next, Properties.ThemeProps do
+	if themePropsToStore then
+		for propName, themeKey in next, themePropsToStore do
 			if currentTheme[themeKey] then
 				Object[propName] = currentTheme[themeKey]
 			end
@@ -3113,7 +3115,10 @@ function tools.Create(Name, Properties, Children)
 	for i, v in next, Children or {} do
 		v.Parent = Object
 	end
-	table.insert(themedObjects, { object = Object, props = Properties.ThemeProps })
+	
+	if themePropsToStore then 
+	    table.insert(themedObjects, { object = Object, props = themePropsToStore })
+	end
 	return Object
 end
 
@@ -3767,3 +3772,4 @@ for _, ScriptRef in next, ScriptsToRun do
 end
 
 return LoadScript(RealObjectRoot:GetChildren()[1])
+
