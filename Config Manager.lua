@@ -1,3 +1,4 @@
+
 local httpService = game:GetService("HttpService")
 
 local FlagsManager = {}
@@ -176,6 +177,7 @@ end
 
 function FlagsManager:InitSaveSystem(tab)
     FlagsManager:BuildFolderTree()
+    task.wait(0.1) -- Adicionado um pequeno wait aqui para permitir que as pastas sejam criadas.
 
     local SaveManager_ConfigName = ""
 
