@@ -1,4 +1,3 @@
-
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 -- Will be used later for getting flattened globals
@@ -592,7 +591,7 @@ function DialogModule:Create(config, parent)
                 buttonConfig.Callback()
             end
             scrolling_frame:Destroy()
-        end
+        Fend
 
         -- Create a new button instance with the container
         local button = setmetatable({
@@ -1015,7 +1014,7 @@ return function(cfgs, Parent)
 	
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
-		LineHeight = 1.2000000476837158,
+		LineHeight = 1.2,
 		RichText = true,
 		-- TextColor3 = Color3.fromRGB(234, 234, 234),
 		ThemeProps = {
@@ -1726,7 +1725,7 @@ local function ApplyTweens(button, config, uiStroke)
 		local strokeTween = TweenService:Create(uiStroke, tweenInfo, strokeTweenGoals)
 		strokeTween:Play()
 	end
-end
+Fend
 
 local function CreateButton(style, text, parent)
 	local config = ButtonStyles[style]
@@ -1817,7 +1816,7 @@ local function CreateButton(style, text, parent)
 	end)
 
 	return button
-end
+Fend
 
 function Element:New(Config)
 	assert(Config.Title, "Button - Missing Title")
@@ -1829,7 +1828,7 @@ function Element:New(Config)
 	Button.StyledButton.MouseButton1Click:Connect(Config.Callback)
 
 	return Button
-end
+Fend
 
 return Element
 
@@ -1883,7 +1882,7 @@ function Element:New(Idx, Config)
 		Colorpicker.Hue = H
 		Colorpicker.Sat = S
 		Colorpicker.Vib = V
-	end
+	Fend
 	Colorpicker:SetHSVFromRGB(Colorpicker.Value)
 
 	local ColorpickerFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
@@ -2172,7 +2171,7 @@ function Element:New(Idx, Config)
         
         -- Call callback safely
         pcall(Colorpicker.Callback, newColor)
-    end
+Fend
 	
 	local function UpdateColorPickerPosition()
 		local ColorX = math.clamp(mouse.X - color.AbsolutePosition.X, 0, color.AbsoluteSize.X)
@@ -2182,7 +2181,7 @@ function Element:New(Idx, Config)
 		Colorpicker.Vib = 1 - (ColorY / color.AbsoluteSize.Y)
 		UpdateColorPicker()
 		-- inputHex.Text is now updated by UpdateColorPicker, no need to duplicate here
-	end
+	Fend
 	
 	local function UpdateHuePickerPosition()
 		local HueY = math.clamp(mouse.Y - hue.AbsolutePosition.Y, 0, hue.AbsoluteSize.Y)
@@ -2190,7 +2189,7 @@ function Element:New(Idx, Config)
 		Colorpicker.Hue = HueY / hue.AbsoluteSize.Y
 		UpdateColorPicker()
 		-- inputHex.Text is now updated by UpdateColorPicker, no need to duplicate here
-	end
+	Fend
 	
 	local ColorInput, HueInput = nil, nil
 	
@@ -2289,14 +2288,14 @@ function Element:New(Idx, Config)
         else
             warn("Colorpicker UI components not fully initialized when calling Set() for", self.Title or "Untitled Colorpicker", ". UI may not update visually.")
         end
-    end
+    Fend
 
     -- Initial update to reflect Config.Default
     Colorpicker:Set(Config.Default)
 
 	self.Library.Flags[Idx] = Colorpicker
 	return Colorpicker
-end
+Fend
 
 return Element
 
@@ -2506,7 +2505,7 @@ function Element:New(Idx, Config)
 				end
 			end
 		end
-	end
+	Fend
 
 	AddConnection(search.Changed, SearchOptions)
 
@@ -2603,7 +2602,7 @@ function Element:New(Idx, Config)
 
 			Dropdown.Buttons[Option] = dropbtn
 		end
-	end
+	Fend
 
 	function Dropdown:Set(Value, ignore)
 		local function updateButtonTransparency(button, isSelected)
@@ -2643,7 +2642,7 @@ function Element:New(Idx, Config)
 					label:Destroy()
 				end
 			end
-		end
+		Fend
 
 		local function addValueText(text)
 			local tagBtn = Create("TextButton", {
@@ -2749,14 +2748,14 @@ function Element:New(Idx, Config)
 						Dropdown:Set(Dropdown.Value)
 						if #Dropdown.Value == 0 then
 							Config.Callback({}) -- Correct: Call with an empty table
-						end
+						Fend
 					end
 				else
 					Dropdown:Set("")
 					Config.Callback("")
 				end
 			end)
-		end
+		Fend
 
         -- ERRO 12 FIX: Logic was confusing for multiple mode, especially if Dropdown.Value wasn't initialized as a table
         if Config.Multiple then
@@ -2831,14 +2830,17 @@ function Element:New(Idx, Config)
 		if not ignore then
 			Config.Callback(Dropdown.Value)
 		end
-	end
+	Fend
 
-	Dropdown:Refresh(Dropdown.Options, false)
+    -- REMOVIDO: Dropdown:Refresh(Dropdown.Options, false)
+    -- ADICIONADO:
+    AddOptions(Dropdown.Options) -- Cria os botões visuais para cada opção.
+
 	Dropdown:Set(Dropdown.Value, Config.IgnoreFirst)
 
 	self.Library.Flags[Idx] = Dropdown
 	return Dropdown
-end
+Fend
 
 return Element
 
@@ -2856,7 +2858,7 @@ function Element:New(Config)
 	local paragraph = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	return paragraph
-end
+Fend
 
 return Element
 
@@ -2875,7 +2877,7 @@ local function Round(Number, Factor)
         Result = Result + Factor
     end
     return Result
-end
+Fend
 
 local Element = {}
 Element.__index = Element
@@ -3023,7 +3025,7 @@ function Element:New(Idx, Config)
         if not ignore then
             return Config.Callback(self.Value)
         end
-    end
+    Fend
 
     local function updateSliderFromInput(inputPosition)
         -- ERRO 30 FIX: Added nil check for inputPosition and Dragging flag
@@ -3036,7 +3038,7 @@ function Element:New(Idx, Config)
         local clampedPosition = math.clamp(relativeX, 0, 1)
         local newValue = Config.Min + (Config.Max - Config.Min) * clampedPosition
         Slider:Set(newValue)
-    end
+    Fend
 
     AddConnection(SliderBar.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -3060,7 +3062,7 @@ function Element:New(Idx, Config)
             Dragging = false
             DraggingDot = false
         end
-    end
+    Fend
 
     AddConnection(UserInputService.InputEnded, stopDragging)
     AddConnection(SliderBar.InputEnded, stopDragging) -- Add specific listeners for slider elements
@@ -3080,7 +3082,7 @@ function Element:New(Idx, Config)
 
     Library.Flags[Idx] = Slider
     return Slider
-end
+Fend
 
 return Element
 end)() end,
@@ -3153,7 +3155,7 @@ function Element:New(Config)
         textbox.Text = value
         Textbox.Value = value
         Config.Callback(value)
-    end
+    Fend
 
     AddConnection(textbox.FocusLost, function()
         Textbox.Value = textbox.Text
@@ -3164,7 +3166,7 @@ function Element:New(Config)
     end)
 
     return Textbox
-end
+Fend
 
 return Element
 
@@ -3245,7 +3247,7 @@ function Element:New(Idx, Config)
             Library:Callback(Toggle.Callback, self.Value)
         end
         self.FirstUpdate = false
-    end
+    Fend
 
     AddConnection(ToggleFrame.Frame.MouseButton1Click, function()
         Toggle:Set(not Toggle.Value)
@@ -3255,7 +3257,7 @@ function Element:New(Idx, Config)
 
     Library.Flags[Idx] = Toggle
     return Toggle
-end
+Fend
 
 return Element
 
@@ -3286,34 +3288,34 @@ function tools.SetTheme(themeName)
 	else
 		warn("Theme not found: " .. themeName)
 	end
-end
+Fend
 
 function tools.GetPropsCurrentTheme()
 	return currentTheme
-end
+Fend
 
 function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
-end
+Fend
 
 function tools.isMobile()
     return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
 	-- return true
-end
+Fend
 
 function tools.AddConnection(Signal, Function)
 	-- if not Library:IsRunning() then return end
 	local connection = Signal:Connect(Function)
 	table.insert(tools.Signals, connection)
 	return connection -- Return the connection so it can be disconnected later
-end
+Fend
 
 function tools.Disconnect()
 	for key = #tools.Signals, 1, -1 do
 		local Connection = table.remove(tools.Signals, key)
 		Connection:Disconnect()
 	end
-end
+Fend
 
 function tools.Create(Name, Properties, Children)
 	local Object = Instance.new(Name)
@@ -3335,7 +3337,7 @@ function tools.Create(Name, Properties, Children)
 		v.Parent = Object
 	end
 	return Object
-end
+Fend
 
 function tools.AddScrollAnim(scrollbar)
 	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 })
@@ -3390,7 +3392,7 @@ function tools.AddScrollAnim(scrollbar)
 			hideScrollbar()
 		end
 	end)
-end
+Fend
 
 return tools
 
