@@ -1,4 +1,6 @@
 
+
+
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 local ImportGlobals
@@ -7,477 +9,472 @@ local ClosureBindings = {
     function()
         local wax, script, require = ImportGlobals(1)
         local ImportGlobals
-        return (function(...)
-            task.wait(1)
+        
+        math.randomseed(os.time())
 
-            function generateRandomString(length)
-                local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
-                local randomString = ""
-                math.randomseed(os.time())
+        task.wait(1)
 
-                for i = 1, length do
-                    local randomIndex = math.random(1, #charset)
-                    randomString = randomString .. charset:sub(randomIndex, randomIndex)
-                end
+        function generateRandomString(length)
+            local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
+            local randomString = ""
 
-                return randomString
+            for i = 1, length do
+                local randomIndex = math.random(1, #charset)
+                randomString = randomString .. charset:sub(randomIndex, randomIndex)
             end
 
-            local UserInputService = game:GetService("UserInputService")
-            local TweenService = game:GetService("TweenService")
-            local gethui = gethui or function()
-                local player = game.Players.LocalPlayer
-                if player then
-                    local playerGui = player:FindFirstChild("PlayerGui")
-                    if playerGui then
-                        return playerGui
-                    else
-                        local result
-                        task.defer(function()
-                            result = player:WaitForChild("PlayerGui")
-                        end)
-                        return result
-                    end
+            return randomString
+        end
+
+        local UserInputService = game:GetService("UserInputService")
+        local TweenService = game:GetService("TweenService")
+        local gethui = function()
+            local player = game.Players.LocalPlayer
+            if player then
+                return player:WaitForChild("PlayerGui")
+            end
+            warn("Player not found for gethui, returning nil")
+            return nil
+        end
+
+
+        local ElementsTable = require(script.elements)
+        local Tools = require(script.tools)
+        local Components = script.components
+
+        local Create = Tools.Create
+        local AddConnection = Tools.AddConnection
+        local AddScrollAnim = Tools.AddScrollAnim
+        local isMobile = Tools.isMobile()
+        local CurrentThemeProps = Tools.GetPropsCurrentTheme()
+
+        local function MakeDraggable(DragPoint, Main)
+            local Dragging, MousePos, FramePos = false
+            AddConnection(DragPoint.InputBegan, function(Input)
+                if
+                    Input.UserInputType == Enum.UserInputType.MouseButton1
+                    or Input.UserInputType == Enum.UserInputType.Touch
+                then
+                    Dragging = true
+                    MousePos = Input.Position
+                    FramePos = Main.Position
                 end
+            end)
+            AddConnection(UserInputService.InputChanged, function(Input)
+                if
+                    (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
+                    and Dragging
+                then
+                    local Delta = Input.Position - MousePos
+                    Main.Position =
+                        UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
+                end
+            })
+            AddConnection(UserInputService.InputEnded, function(Input)
+                if
+                    (Input.UserInputType == Enum.UserInputType.MouseButton1
+                    or Input.UserInputType == Enum.UserInputType.Touch)
+                    and Dragging
+                then
+                    Dragging = false
+                end
+            })
+        end
+
+        local Library = {
+            Window = nil,
+            Flags = {},
+            Signals = {},
+            ToggleBind = nil,
+        }
+
+        local GUI = Create("ScreenGui", {
+            Name = generateRandomString(16),
+            Parent = gethui(),
+            ResetOnSpawn = false,
+            ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+        })
+
+        require(Components.notif):Init(GUI)
+
+        function Library:SetTheme(themeName)
+            Tools.SetTheme(themeName)
+        end
+
+        function Library:GetTheme()
+            return Tools.GetPropsCurrentTheme()
+        end
+
+        function Library:AddTheme(themeName, themeProps)
+            Tools.AddTheme(themeName, themeProps)
+        end
+
+        function Library:IsRunning()
+            return GUI.Parent == gethui()
+        end
+
+        task.spawn(function()
+            while task.wait(1) do
+                if not Library:IsRunning() then
+                    break
+                end
+            end
+            for i, Connection in pairs(Tools.Signals) do
+                Connection:Disconnect()
+            end
+        end)
+
+        local Elements = {}
+        Elements.__index = Elements
+        Elements.__namecall = function(Table, Key, ...)
+            return Elements[Key](...)
+        end
+
+        for _, ElementComponent in ipairs(ElementsTable) do
+            assert(ElementComponent.__type, "ElementComponent missing __type")
+            assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
+
+            Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
+                return ElementComponent:New(Idx, Config, self.Container, self.Type, self.ScrollFrame, Library)
+            end
+        end
+
+        Library.Elements = Elements
+
+        function Library:Callback(Callback, ...)
+            local success, result = pcall(Callback, ...)
+
+            if success then
+                return result
+            else
+                local errorMessage = tostring(result)
+                local errorLine = string.match(errorMessage, ":(%d+):")
+                local errorInfo = `Callback execution failed.\n`
+                errorInfo = errorInfo .. `Error: {errorMessage}\n`
+
+                if errorLine then
+                    errorInfo = errorInfo .. `Occurred on line: {errorLine}\n`
+                end
+
+                errorInfo = errorInfo
+                    .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
+                warn(errorInfo)
+            end
+        end
+
+        function Library:Notification(titleText, descriptionText, duration)
+            require(Components.notif):ShowNotification(titleText, descriptionText, duration)
+        end
+
+        function Library:Dialog(config)
+            return require(Components.dialog):Create(config, self.LoadedWindow)
+        end
+
+        function Library:Load(cfgs)
+
+            cfgs = cfgs or {}
+            cfgs.Title = cfgs.Title or "Window"
+            cfgs.ToggleButton = cfgs.ToggleButton or ""
+            cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
+
+            if Library.Window then
+                warn("Cannot create more than one window.")
+                GUI:Destroy()
                 return nil
             end
 
+            Library.Window = GUI
 
-            local ElementsTable = require(script.elements)
-            local Tools = require(script.tools)
-            local Components = script.components
-
-            local Create = Tools.Create
-            local AddConnection = Tools.AddConnection
-            local AddScrollAnim = Tools.AddScrollAnim
-            local isMobile = Tools.isMobile()
-            local CurrentThemeProps = Tools.GetPropsCurrentTheme()
-
-            local function MakeDraggable(DragPoint, Main)
-                local Dragging, MousePos, FramePos = false
-                AddConnection(DragPoint.InputBegan, function(Input)
-                    if
-                        Input.UserInputType == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType == Enum.UserInputType.Touch
-                    then
-                        Dragging = true
-                        MousePos = Input.Position
-                        FramePos = Main.Position
-                    end
-                end)
-                AddConnection(UserInputService.InputChanged, function(Input)
-                    if
-                        (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
-                        and Dragging
-                    then
-                        local Delta = Input.Position - MousePos
-                        Main.Position =
-                            UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
-                    end
-                end)
-                AddConnection(UserInputService.InputEnded, function(Input)
-                    if
-                        (Input.UserInputType == Enum.UserInputType.MouseButton1
-                        or Input.UserInputType == Enum.UserInputType.Touch)
-                        and Dragging
-                    then
-                        Dragging = false
-                    end
-                end)
-            end
-
-            local Library = {
-                Window = nil,
-                Flags = {},
-                Signals = {},
-                ToggleBind = nil,
-            }
-
-            local GUI = Create("ScreenGui", {
-                Name = generateRandomString(16),
-                Parent = gethui(),
-                ResetOnSpawn = false,
-                ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+            local canvas_group = Create("CanvasGroup", {
+                AnchorPoint = Vector2.new(0.5, 0.5),
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                },
+                Position = UDim2.new(0.5, 0, 0.3, 0),
+                Size = UDim2.new(0, 650, 0, 400),
+                Parent = GUI,
+                Visible = false,
+                GroupTransparency = 1,
+            }, {
+                Create("UICorner", {
+                    CornerRadius = UDim.new(0, 6),
+                }),
             })
 
-            require(Components.notif):Init(GUI)
-
-            function Library:SetTheme(themeName)
-                Tools.SetTheme(themeName)
+            if isMobile then
+                canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
             end
 
-            function Library:GetTheme()
-                return Tools.GetPropsCurrentTheme()
-            end
-
-            function Library:AddTheme(themeName, themeProps)
-                Tools.AddTheme(themeName, themeProps)
-            end
-
-            function Library:IsRunning()
-                return GUI.Parent == gethui()
-            end
-
-            task.spawn(function()
-                while Library:IsRunning() do
-                    task.wait()
-                end
-                for i, Connection in pairs(Tools.Signals) do
-                    Connection:Disconnect()
-                end
-            end)
-
-            local Elements = {}
-            Elements.__index = Elements
-            Elements.__namecall = function(Table, Key, ...)
-                return Elements[Key](...)
-            end
-
-            for _, ElementComponent in ipairs(ElementsTable) do
-                assert(ElementComponent.__type, "ElementComponent missing __type")
-                assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
-
-                Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
-                    return ElementComponent:New(Idx, Config, self.Container, self.Type, self.ScrollFrame, Library)
-                end
-            end
-
-            Library.Elements = Elements
-
-            function Library:Callback(Callback, ...)
-                local success, result = pcall(Callback, ...)
-
-                if success then
-                    return result
-                else
-                    local errorMessage = tostring(result)
-                    local errorLine = string.match(errorMessage, ":(%d+):")
-                    local errorInfo = `Callback execution failed.\n`
-                    errorInfo = errorInfo .. `Error: {errorMessage}\n`
-
-                    if errorLine then
-                        errorInfo = errorInfo .. `Occurred on line: {errorLine}\n`
-                    end
-
-                    errorInfo = errorInfo
-                        .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
-                    warn(errorInfo)
-                end
-            end
-
-            function Library:Notification(titleText, descriptionText, duration)
-                require(Components.notif):ShowNotification(titleText, descriptionText, duration)
-            end
-
-            function Library:Dialog(config)
-                return require(Components.dialog):Create(config, self.LoadedWindow)
-            end
-
-            function Library:Load(cfgs)
-
-                cfgs = cfgs or {}
-                cfgs.Title = cfgs.Title or "Window"
-                cfgs.ToggleButton = cfgs.ToggleButton or ""
-                cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
-
-                if Library.Window then
-                    warn("Cannot create more than one window.")
-                    GUI:Destroy()
-                    return nil
-                end
-
-                Library.Window = GUI
-
-                local canvas_group = Create("CanvasGroup", {
-                    AnchorPoint = Vector2.new(0.5, 0.5),
+            local togglebtn = Create("ImageButton", {
+                AnchorPoint = Vector2.new(0.5, 0),
+                AutoButtonColor = false,
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                    ImageColor3 = "togglebuttoncolor",
+                },
+                Position = UDim2.new(0.5, 8, 0, 0),
+                Size = UDim2.new(0, 45, 0, 45),
+                Parent = GUI,
+                Image = cfgs.ToggleButton,
+                BackgroundTransparency = 0,
+            }, {
+                Create("UICorner", {
+                    CornerRadius = UDim.new(0, 6),
+                }),
+                Create("UIStroke", {
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
                     ThemeProps = {
-                        BackgroundColor3 = "maincolor",
+                        Color = "bordercolor",
                     },
-                    Position = UDim2.new(0.5, 0, 0.3, 0),
-                    Size = UDim2.new(0, 650, 0, 400),
-                    Parent = GUI,
-                    Visible = false,
-                    GroupTransparency = 1,
-                }, {
-                    Create("UICorner", {
-                        CornerRadius = UDim.new(0, 6),
-                    }),
-                })
+                    Enabled = true,
+                    LineJoinMode = Enum.LineJoinMode.Round,
+                    Thickness = 1,
+                    Archivable = true,
+                }),
+            })
 
-                if isMobile then
-                    canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
+            local function ToggleVisibility()
+                local isWindowCurrentlyVisible = canvas_group.Visible and (canvas_group.GroupTransparency < 1)
+                local targetWindowPosition = isWindowCurrentlyVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
+                local targetWindowTransparency = isWindowCurrentlyVisible and 1 or 0
+                local targetToggleBtnTransparency = isWindowCurrentlyVisible and 0 or 1
+
+                local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
+
+                canvas_group.Visible = true
+
+                if cfgs.ToggleButton ~= "" then
+                    togglebtn.Visible = true
                 end
 
-                local togglebtn = Create("ImageButton", {
-                    AnchorPoint = Vector2.new(0.5, 0),
-                    AutoButtonColor = false,
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                        ImageColor3 = "togglebuttoncolor",
-                    },
-                    Position = UDim2.new(0.5, 8, 0, 0),
-                    Size = UDim2.new(0, 45, 0, 45),
-                    Parent = GUI,
-                    Image = cfgs.ToggleButton,
-                    BackgroundTransparency = 0,
-                }, {
-                    Create("UICorner", {
-                        CornerRadius = UDim.new(0, 6),
-                    }),
-                    Create("UIStroke", {
-                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = {
-                            Color = "bordercolor",
-                        },
-                        Enabled = true,
-                        LineJoinMode = Enum.LineJoinMode.Round,
-                        Thickness = 1,
-                        Archivable = true,
-                    }),
-                })
+                TweenService:Create(canvas_group, tweenInfo, {
+                    Position = targetWindowPosition,
+                    GroupTransparency = targetWindowTransparency
+                }):Play()
 
-                local function ToggleVisibility()
-                    local isVisible = canvas_group.Visible and (canvas_group.GroupTransparency < 1)
-                    local targetPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-                    local targetTransparency = isVisible and 1 or 0
-                    local toggleBtnTargetTransparency = isVisible and 0 or 1
-
-                    local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
-
-                    canvas_group.Visible = true
-                    if cfgs.ToggleButton ~= "" then
-                        togglebtn.Visible = true
-                    end
-
-                    TweenService:Create(canvas_group, tweenInfo, {
-                        Position = targetPosition,
-                        GroupTransparency = targetTransparency
+                if cfgs.ToggleButton ~= "" then
+                    TweenService:Create(togglebtn, tweenInfo, {
+                        BackgroundTransparency = targetToggleBtnTransparency,
+                        ImageTransparency = targetToggleBtnTransparency,
                     }):Play()
 
-                    if cfgs.ToggleButton ~= "" then
-                        TweenService:Create(togglebtn, tweenInfo, {
-                            BackgroundTransparency = toggleBtnTargetTransparency,
-                            ImageTransparency = toggleBtnTargetTransparency,
+                    local stroke = togglebtn:FindFirstChildOfClass("UIStroke")
+                    if stroke then
+                        TweenService:Create(stroke, tweenInfo, {
+                            Transparency = targetToggleBtnTransparency,
                         }):Play()
-
-                        local stroke = togglebtn:FindFirstChildOfClass("UIStroke")
-                        if stroke then
-                            TweenService:Create(stroke, tweenInfo, {
-                                Transparency = toggleBtnTargetTransparency,
-                            }):Play()
-                        end
                     end
+                end
 
-                    if isVisible then
-                        local connection
-                        connection = AddConnection(TweenService:Create(canvas_group, tweenInfo, {}).Completed, function()
-                            canvas_group.Visible = false
-                            if cfgs.ToggleButton ~= "" then
-                                togglebtn.Visible = true
-                            end
-                            connection:Disconnect()
-                        end)
-                    else
+                if isWindowCurrentlyVisible then
+                    local connection
+                    connection = AddConnection(TweenService:Create(canvas_group, tweenInfo, {}).Completed, function()
+                        canvas_group.Visible = false
                         if cfgs.ToggleButton ~= "" then
-                            togglebtn.Visible = false
+                            togglebtn.Visible = true
                         end
-                    end
-                end
-
-                if cfgs.ToggleButton == "" then
-                    togglebtn:Destroy()
-                else
-                    togglebtn.Visible = false
-                    canvas_group.GroupTransparency = 1
-                    canvas_group.Visible = false
-
-                    MakeDraggable(togglebtn, togglebtn)
-                    AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-                    AddConnection(UserInputService.InputBegan, function(value)
-                        if value.KeyCode == cfgs.BindGui then
-                            ToggleVisibility()
-                        end
+                        connection:Disconnect()
                     end)
-                end
-
-                local top_frame = Create("Frame", {
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                    },
-                    BorderColor3 = Color3.fromRGB(39, 39, 42),
-                    Size = UDim2.new(1, 0, 0, 40),
-                    ZIndex = 9,
-                    Parent = canvas_group,
-                }, {
-                    Create("UIStroke", {
-                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = {
-                            Color = "bordercolor",
-                        },
-                        Thickness = 1,
-                    }),
-                })
-
-                local title = Create("TextLabel", {
-                    Font = Enum.Font.GothamMedium,
-                    RichText = true,
-                    Text = cfgs.Title,
-                    ThemeProps = {
-                        TextColor3 = "titlecolor",
-                        BackgroundColor3 = "maincolor",
-                    },
-                    BorderSizePixel = 0,
-                    TextSize = 15,
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    BackgroundTransparency = 1,
-                    Position = UDim2.new(0, 14, 0, 0),
-                    Size = UDim2.new(0, 200, 0, 40),
-                    ZIndex = 10,
-                    Parent = top_frame,
-                })
-
-                local minimizebtn = Create("TextButton", {
-                    Text = "",
-                    BackgroundTransparency = 1,
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                    },
-                    BorderSizePixel = 0,
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -36, 0.5, 0),
-                    Size = UDim2.new(0, 28, 0, 28),
-                    ZIndex = 10,
-                    Parent = top_frame,
-                }, {
-                    Create("ImageLabel", {
-                        Image = "rbxassetid://15269257100",
-                        ImageRectOffset = Vector2.new(514, 257),
-                        ImageRectSize = Vector2.new(256, 256),
-                        AnchorPoint = Vector2.new(0.5, 0.5),
-                        BackgroundTransparency = 1,
-                        Position = UDim2.new(0.5, 0, 0.5, 0),
-                        Size = UDim2.new(1, -10, 1, -10),
-                        ThemeProps = {
-                            ImageColor3 = "titlecolor",
-                        },
-                        BorderSizePixel = 0,
-                        ZIndex = 11,
-                    }),
-                })
-
-                local closebtn = Create("TextButton", {
-                    Text = "",
-                    BackgroundTransparency = 1,
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                    },
-                    BorderSizePixel = 0,
-                    AnchorPoint = Vector2.new(1, 0.5),
-                    Position = UDim2.new(1, -8, 0.5, 0),
-                    Size = UDim2.new(0, 28, 0, 28),
-                    ZIndex = 10,
-                    Parent = top_frame,
-                }, {
-                    Create("ImageLabel", {
-                        Image = "rbxassetid://15269329696",
-                        ImageRectOffset = Vector2.new(0, 514),
-                        ImageRectSize = Vector2.new(256, 256),
-                        AnchorPoint = Vector2.new(0.5, 0.5),
-                        BackgroundTransparency = 1,
-                        Position = UDim2.new(0.5, 0, 0.5, 0),
-                        Size = UDim2.new(1, -10, 1, -10),
-                        ThemeProps = {
-                            ImageColor3 = "titlecolor",
-                        },
-                        BorderSizePixel = 0,
-                        ZIndex = 11,
-                    }),
-                })
-
-                AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
-                AddConnection(closebtn.MouseButton1Click, function()
-                    canvas_group:Destroy()
+                else
                     if cfgs.ToggleButton ~= "" then
-                        togglebtn:Destroy()
+                        togglebtn.Visible = false
                     end
-                    Library.Window = nil
-                end)
-
-                local tab_frame = Create("Frame", {
-                    BackgroundTransparency = 1,
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                    },
-                    BorderSizePixel = 0,
-                    BorderColor3 = Color3.fromRGB(39, 39, 42),
-                    Position = UDim2.new(0, 0, 0, 40),
-                    Size = UDim2.new(0, 140, 1, -40),
-                    Parent = canvas_group,
-                }, {
-                    Create("UIStroke", {
-                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = {
-                            Color = "bordercolor",
-                        },
-                        Thickness = 1,
-                    }),
-                })
-
-                local TabHolder = Create("ScrollingFrame", {
-                    ThemeProps = {
-                        ScrollBarImageColor3 = "scrollcolor",
-                        BackgroundColor3 = "maincolor",
-                    },
-                    ScrollBarThickness = 2,
-                    ScrollBarImageTransparency = 1,
-                    CanvasSize = UDim2.new(0, 0, 0, 0),
-                    BackgroundTransparency = 1,
-                    BorderSizePixel = 0,
-                    Size = UDim2.new(1, 0, 1, 0),
-                    Parent = tab_frame,
-                }, {
-                    Create("UIPadding", {
-                        PaddingBottom = UDim.new(0, 6),
-                        PaddingTop = UDim.new(0, 0),
-                    }),
-                    Create("UIListLayout", {
-                        SortOrder = Enum.SortOrder.LayoutOrder,
-                    }),
-                })
-
-                AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
-                    TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 28)
-                end)
-
-                AddScrollAnim(TabHolder)
-
-                local containerFolder = Create("Folder", {
-                    Parent = canvas_group,
-                })
-
-                if not isMobile then
-                    MakeDraggable(top_frame, canvas_group)
                 end
-
-                Library.LoadedWindow = canvas_group
-
-                local Tabs = {}
-
-                local TabModule = require(Components.tab):Init(containerFolder)
-                function Tabs:AddTab(title)
-                    return TabModule:New(title, TabHolder, Library)
-                end
-                function Tabs:SelectTab(Tab)
-                    Tab = Tab or 1
-                    TabModule:SelectTab(Tab)
-                end
-
-                return Tabs
             end
-            return Library
 
-        end)()
-    end,
+            if cfgs.ToggleButton == "" then
+                togglebtn:Destroy()
+            else
+                togglebtn.Visible = false
+                canvas_group.GroupTransparency = 1
+                canvas_group.Visible = false
+
+                MakeDraggable(togglebtn, togglebtn)
+                AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
+                AddConnection(UserInputService.InputBegan, function(value)
+                    if value.KeyCode == cfgs.BindGui then
+                        ToggleVisibility()
+                    end
+                })
+            end
+
+            local top_frame = Create("Frame", {
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                },
+                BorderColor3 = Color3.fromRGB(39, 39, 42),
+                Size = UDim2.new(1, 0, 0, 40),
+                ZIndex = 9,
+                Parent = canvas_group,
+            }, {
+                Create("UIStroke", {
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                    ThemeProps = {
+                        Color = "bordercolor",
+                    },
+                    Thickness = 1,
+                }),
+            })
+
+            local title = Create("TextLabel", {
+                Font = Enum.Font.GothamMedium,
+                RichText = true,
+                Text = cfgs.Title,
+                ThemeProps = {
+                    TextColor3 = "titlecolor",
+                    BackgroundColor3 = "maincolor",
+                },
+                BorderSizePixel = 0,
+                TextSize = 15,
+                TextXAlignment = Enum.TextXAlignment.Left,
+                BackgroundTransparency = 1,
+                Position = UDim2.new(0, 14, 0, 0),
+                Size = UDim2.new(0, 200, 0, 40),
+                ZIndex = 10,
+                Parent = top_frame,
+            })
+
+            local minimizebtn = Create("TextButton", {
+                Text = "",
+                BackgroundTransparency = 1,
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                },
+                BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -36, 0.5, 0),
+                Size = UDim2.new(0, 28, 0, 28),
+                ZIndex = 10,
+                Parent = top_frame,
+            }, {
+                Create("ImageLabel", {
+                    Image = "rbxassetid://15269257100",
+                    ImageRectOffset = Vector2.new(514, 257),
+                    ImageRectSize = Vector2.new(256, 256),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
+                    Size = UDim2.new(1, -10, 1, -10),
+                    ThemeProps = {
+                        ImageColor3 = "titlecolor",
+                    },
+                    BorderSizePixel = 0,
+                    ZIndex = 11,
+                }),
+            })
+
+            local closebtn = Create("TextButton", {
+                Text = "",
+                BackgroundTransparency = 1,
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                },
+                BorderSizePixel = 0,
+                AnchorPoint = Vector2.new(1, 0.5),
+                Position = UDim2.new(1, -8, 0.5, 0),
+                Size = UDim2.new(0, 28, 0, 28),
+                ZIndex = 10,
+                Parent = top_frame,
+            }, {
+                Create("ImageLabel", {
+                    Image = "rbxassetid://15269329696",
+                    ImageRectOffset = Vector2.new(0, 514),
+                    ImageRectSize = Vector2.new(256, 256),
+                    AnchorPoint = Vector2.new(0.5, 0.5),
+                    BackgroundTransparency = 1,
+                    Position = UDim2.new(0.5, 0, 0.5, 0),
+                    Size = UDim2.new(1, -10, 1, -10),
+                    ThemeProps = {
+                        ImageColor3 = "titlecolor",
+                    },
+                    BorderSizePixel = 0,
+                    ZIndex = 11,
+                }),
+            })
+
+            AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
+            AddConnection(closebtn.MouseButton1Click, function()
+                canvas_group:Destroy()
+                if cfgs.ToggleButton ~= "" then
+                    togglebtn:Destroy()
+                end
+                Library.Window = nil
+            end)
+
+            local tab_frame = Create("Frame", {
+                BackgroundTransparency = 1,
+                ThemeProps = {
+                    BackgroundColor3 = "maincolor",
+                },
+                BorderSizePixel = 0,
+                BorderColor3 = Color3.fromRGB(39, 39, 42),
+                Position = UDim2.new(0, 0, 0, 40),
+                Size = UDim2.new(0, 140, 1, -40),
+                Parent = canvas_group,
+            }, {
+                Create("UIStroke", {
+                    ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+                    ThemeProps = {
+                        Color = "bordercolor",
+                    },
+                    Thickness = 1,
+                }),
+            })
+
+            local TabHolder = Create("ScrollingFrame", {
+                ThemeProps = {
+                    ScrollBarImageColor3 = "scrollcolor",
+                    BackgroundColor3 = "maincolor",
+                },
+                ScrollBarThickness = 2,
+                ScrollBarImageTransparency = 1,
+                CanvasSize = UDim2.new(0, 0, 0, 0),
+                BackgroundTransparency = 1,
+                BorderSizePixel = 0,
+                Size = UDim2.new(1, 0, 1, 0),
+                Parent = tab_frame,
+            }, {
+                Create("UIPadding", {
+                    PaddingBottom = UDim.new(0, 6),
+                    PaddingTop = UDim.new(0, 0),
+                }),
+                Create("UIListLayout", {
+                    SortOrder = Enum.SortOrder.LayoutOrder,
+                }),
+            })
+
+            AddConnection(TabHolder.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
+                TabHolder.CanvasSize = UDim2.new(0, 0, 0, TabHolder.UIListLayout.AbsoluteContentSize.Y + 28)
+            end)
+
+            AddScrollAnim(TabHolder)
+
+            local containerFolder = Create("Folder", {
+                Parent = canvas_group,
+            })
+
+            if not isMobile then
+                MakeDraggable(top_frame, canvas_group)
+            end
+
+            Library.LoadedWindow = canvas_group
+
+            local Tabs = {}
+
+            local TabModule = require(Components.tab):Init(containerFolder)
+            function Tabs:AddTab(title)
+                return TabModule:New(title, TabHolder, Library)
+            end
+            function Tabs:SelectTab(Tab)
+                Tab = Tab or 1
+                TabModule:SelectTab(Tab)
+            end
+
+            return Tabs
+        end
+        return Library
+
+    end)(),
     [3] = function()
         local wax, script, require = ImportGlobals(3)
         local ImportGlobals
@@ -936,8 +933,8 @@ local ClosureBindings = {
                     fadeOutTween:Play()
                     fadeOutTween.Completed:Connect(function()
                         main:Destroy()
-                    end)
-                })
+                    })
+                end)
 
             end
 
@@ -1515,7 +1512,7 @@ local ClosureBindings = {
                             Config.Callback(Holding)
                         end
                     end
-                end)
+                })
 
                 Bind:Set(Config.Default)
 
@@ -1701,17 +1698,17 @@ local ClosureBindings = {
                     if config.HoverConfig then
                         ApplyTweens(button, config.HoverConfig, uiStroke)
                     end
-                end)
+                })
 
                 AddConnection(button.MouseLeave, function()
                     ApplyTweens(button, initialState, uiStroke)
-                end)
+                })
 
                 AddConnection(button.MouseButton1Down, function()
                     if config.FocusConfig then
                         ApplyTweens(button, config.FocusConfig, uiStroke)
                     end
-                end)
+                })
 
                 AddConnection(button.MouseButton1Up, function()
                     if button:IsMouseOver() and config.HoverConfig then
@@ -1719,7 +1716,7 @@ local ClosureBindings = {
                     else
                         ApplyTweens(button, initialState, uiStroke)
                     end
-                end)
+                })
 
                 return button
             end
@@ -1767,6 +1764,7 @@ local ClosureBindings = {
                 assert(Config.Title, "Colorpicker - Missing Title")
                 Config.Description = Config.Description or nil
                 assert(Config.Default, "AddColorPicker: Missing default value.")
+                assert(typeof(Config.Default) == "Color3", "Colorpicker.Default must be a Color3.")
 
                 local Colorpicker = {
                     Value = Config.Default,
@@ -2141,7 +2139,7 @@ local ClosureBindings = {
                             HueInput = nil
                         end
                     end
-                end)
+                })
 
                 AddConnection(ColorpickerFrame.Frame.MouseButton1Click, function()
                     Colorpicker.ColorpickerToggle = not Colorpicker.ColorpickerToggle
@@ -2149,6 +2147,10 @@ local ClosureBindings = {
                 end)
 
                 local function startRainbowMode()
+                    if rainbowUpdateConnection then
+                        rainbowUpdateConnection:Disconnect()
+                        rainbowUpdateConnection = nil
+                    end
                     rainbowUpdateConnection = AddConnection(game:GetService("RunService").RenderStepped, function()
                         RainbowColorValue = (RainbowColorValue + rainbowIncrement) % 1
                         Colorpicker.Hue = RainbowColorValue
@@ -2310,7 +2312,7 @@ local ClosureBindings = {
                     }, {}),
                     Create("UIFlexItem", {
                         FlexMode = Enum.UIFlexMode.Shrink,
-                    }, {}),
+                    }),
                 })
 
                 local search = Create("TextBox", {
@@ -2328,7 +2330,7 @@ local ClosureBindings = {
                     BackgroundTransparency = 1,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
-                    Size = UDim2.new(0, 120, 0, 30),
+                    Size = UDim2.new(1, 0, 0, 30),
                     Visible = true,
                     Parent = DropdownElement,
                 }, {
@@ -2386,7 +2388,7 @@ local ClosureBindings = {
 
                 AddConnection(search.Focused, function()
                     toggleDropcontVisibility(true)
-                end)
+                })
 
                 AddConnection(UserInputService.InputBegan, function(input)
                     if Dropdown.Toggled and input.UserInputType == Enum.UserInputType.MouseButton1 then
@@ -2404,7 +2406,7 @@ local ClosureBindings = {
                             toggleDropcontVisibility(false)
                         end
                     end
-                end)
+                })
 
 
                 function SearchOptions()
@@ -2763,6 +2765,7 @@ local ClosureBindings = {
             local Create = Tools.Create
             local AddConnection = Tools.AddConnection
             local function Round(Number, Factor)
+                if type(Number) ~= "number" then return Number end
                 local Result = math.floor(Number / Factor + (math.sign(Number) * 0.5)) * Factor
                 if Result < 0 then
                     Result = Result + Factor
@@ -2778,11 +2781,15 @@ local ClosureBindings = {
                 assert(Config.Title, "Slider - Missing Title")
                 Config.Description = Config.Description or nil
 
-                Config.Min = Config.Min or 0
-                Config.Max = Config.Max or 100
-                Config.Increment = Config.Increment or 1
-                Config.Default = Config.Default or Config.Min
+                Config.Min = type(Config.Min) == "number" and Config.Min or 0
+                Config.Max = type(Config.Max) == "number" and Config.Max or 100
+                Config.Increment = type(Config.Increment) == "number" and Config.Increment or 1
+                Config.Default = type(Config.Default) == "number" and Config.Default or Config.Min
                 Config.IgnoreFirst = Config.IgnoreFirst or false
+
+                assert(Config.Min <= Config.Max, "Slider Min cannot be greater than Max")
+                assert(Config.Increment > 0, "Slider Increment must be positive")
+                assert(Config.Default >= Config.Min and Config.Default <= Config.Max, "Slider Default must be within Min and Max")
 
                 local Slider = {
                     Value = Config.Default,
@@ -2889,6 +2896,10 @@ local ClosureBindings = {
                 })
 
                 function Slider:Set(Value, ignore)
+                    if type(Value) ~= "number" then
+                        warn("Slider:Set received a non-number value:", Value)
+                        return
+                    end
                     self.Value = math.clamp(Round(Value, Config.Increment), Config.Min, Config.Max)
                     ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max)
 
@@ -2929,7 +2940,7 @@ local ClosureBindings = {
                         Dragging = true
                         updateSliderFromInput(input.Position)
                     end
-                end)
+                })
 
                 AddConnection(SliderDot.InputBegan, function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -2937,20 +2948,20 @@ local ClosureBindings = {
                         DraggingDot = true
                         updateSliderFromInput(input.Position)
                     end
-                end)
+                })
 
                 AddConnection(UserInputService.InputEnded, function(input)
                     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
                         Dragging = false
                         DraggingDot = false
                     end
-                end)
+                })
 
                 AddConnection(UserInputService.InputChanged, function(input)
                     if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
                         updateSliderFromInput(input.Position)
                     end
-                end)
+                })
 
                 Slider:Set(Config.Default, Config.IgnoreFirst)
 
@@ -3042,7 +3053,7 @@ local ClosureBindings = {
                     if Config.TextDisappear then
                         textbox.Text = ""
                     end
-                end)
+                })
 
                 return Textbox
             end
@@ -3269,11 +3280,11 @@ local ClosureBindings = {
                 AddConnection(scrollbar.MouseEnter, function()
                     lastInteraction = tick()
                     showScrollbar()
-                end)
+                })
 
                 AddConnection(scrollbar.MouseLeave, function()
                     task.delay(delayTime, hideScrollbar)
-                end)
+                })
 
                 AddConnection(scrollbar.InputChanged, function(input)
                     if
@@ -3283,25 +3294,25 @@ local ClosureBindings = {
                         lastInteraction = tick()
                         showScrollbar()
                     end
-                end)
+                })
 
                 AddConnection(scrollbar:GetPropertyChangedSignal("CanvasPosition"), function()
                     lastInteraction = tick()
                     showScrollbar()
-                end)
+                })
 
                 AddConnection(UserInputService.InputChanged, function(input)
                     if input.UserInputType == Enum.UserInputType.MouseWheel then
                         lastInteraction = tick()
                         showScrollbar()
                     end
-                end)
+                })
 
                 AddConnection(RunService.RenderStepped, function()
                     if tick() - lastInteraction >= delayTime then
                         hideScrollbar()
                     end
-                end)
+                })
             end
 
             return tools
