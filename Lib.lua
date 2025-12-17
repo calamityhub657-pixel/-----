@@ -1,5 +1,4 @@
 
-
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 local ImportGlobals
