@@ -1,24 +1,19 @@
 
-
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
--- Will be used later for getting flattened globals
 local ImportGlobals
 
--- Holds direct closure data (defining this before the DOM tree for line debugging etc)
 local ClosureBindings = {
     function()
         local wax, script, require = ImportGlobals(1)
         local ImportGlobals
         return (function(...)
-            task.wait(1) -- Changed wait(1) to task.wait(1)
+            task.wait(1)
 
             function generateRandomString(length)
                 local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
                 local randomString = ""
-                -- For client-side, os.time() for seeding is generally fine, but often not necessary if true randomness isn't critical.
-                -- For unique UI names, `math.random()` without explicit seeding is often sufficient and can be more "random" across multiple local scripts.
-                math.randomseed(os.time()) -- Seed the random generator
+                math.randomseed(os.time())
 
                 for i = 1, length do
                     local randomIndex = math.random(1, #charset)
@@ -30,7 +25,23 @@ local ClosureBindings = {
 
             local UserInputService = game:GetService("UserInputService")
             local TweenService = game:GetService("TweenService")
-            local gethui = gethui or function() return game.Players.LocalPlayer:WaitForChild("PlayerGui") end -- Fallback for testing environment
+            local gethui = gethui or function()
+                local player = game.Players.LocalPlayer
+                if player then
+                    local playerGui = player:FindFirstChild("PlayerGui")
+                    if playerGui then
+                        return playerGui
+                    else
+                        local result
+                        task.defer(function()
+                            result = player:WaitForChild("PlayerGui")
+                        end)
+                        return result
+                    end
+                end
+                return nil
+            end
+
 
             local ElementsTable = require(script.elements)
             local Tools = require(script.tools)
@@ -40,11 +51,10 @@ local ClosureBindings = {
             local AddConnection = Tools.AddConnection
             local AddScrollAnim = Tools.AddScrollAnim
             local isMobile = Tools.isMobile()
-            local CurrentThemeProps = Tools.GetPropsCurrentTheme() -- This might need to be dynamic if themes change often
+            local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
             local function MakeDraggable(DragPoint, Main)
-                -- if isMobile then return end -- Uncomment if dragging is not desired on mobile
-                local Dragging, DragInput, MousePos, FramePos = false
+                local Dragging, MousePos, FramePos = false
                 AddConnection(DragPoint.InputBegan, function(Input)
                     if
                         Input.UserInputType == Enum.UserInputType.MouseButton1
@@ -55,7 +65,7 @@ local ClosureBindings = {
                         FramePos = Main.Position
                     end
                 end)
-                AddConnection(UserInputService.InputChanged, function(Input) -- Moved InputChanged to UserInputService
+                AddConnection(UserInputService.InputChanged, function(Input)
                     if
                         (Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
                         and Dragging
@@ -65,7 +75,7 @@ local ClosureBindings = {
                             UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
                     end
                 end)
-                AddConnection(UserInputService.InputEnded, function(Input) -- Listen for InputEnded globally to stop dragging
+                AddConnection(UserInputService.InputEnded, function(Input)
                     if
                         (Input.UserInputType == Enum.UserInputType.MouseButton1
                         or Input.UserInputType == Enum.UserInputType.Touch)
@@ -85,7 +95,7 @@ local ClosureBindings = {
 
             local GUI = Create("ScreenGui", {
                 Name = generateRandomString(16),
-                Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
+                Parent = gethui(),
                 ResetOnSpawn = false,
                 ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
             })
@@ -105,7 +115,7 @@ local ClosureBindings = {
             end
 
             function Library:IsRunning()
-                return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
+                return GUI.Parent == gethui()
             end
 
             task.spawn(function()
@@ -127,7 +137,6 @@ local ClosureBindings = {
                 assert(ElementComponent.__type, "ElementComponent missing __type")
                 assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
 
-                -- Changed to pass necessary context to the New function directly
                 Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
                     return ElementComponent:New(Idx, Config, self.Container, self.Type, self.ScrollFrame, Library)
                 end
@@ -139,7 +148,6 @@ local ClosureBindings = {
                 local success, result = pcall(Callback, ...)
 
                 if success then
-                    -- print(`Callback executed successfully!`)
                     return result
                 else
                     local errorMessage = tostring(result)
@@ -153,7 +161,7 @@ local ClosureBindings = {
 
                     errorInfo = errorInfo
                         .. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
-                    warn(errorInfo) -- Changed print to warn for better visibility of errors
+                    warn(errorInfo)
                 end
             end
 
@@ -173,9 +181,9 @@ local ClosureBindings = {
                 cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
 
                 if Library.Window then
-                    warn("Cannot create more than one window.") -- Changed print to warn
+                    warn("Cannot create more than one window.")
                     GUI:Destroy()
-                    return nil -- Return nil if window already exists
+                    return nil
                 end
 
                 Library.Window = GUI
@@ -189,7 +197,7 @@ local ClosureBindings = {
                     Size = UDim2.new(0, 650, 0, 400),
                     Parent = GUI,
                     Visible = false,
-                    GroupTransparency = 1, -- Initial transparency for fade-in effect
+                    GroupTransparency = 1,
                 }, {
                     Create("UICorner", {
                         CornerRadius = UDim.new(0, 6),
@@ -205,13 +213,13 @@ local ClosureBindings = {
                     AutoButtonColor = false,
                     ThemeProps = {
                         BackgroundColor3 = "maincolor",
-                        ImageColor3 = "togglebuttoncolor", -- Added theme prop for toggle button image
+                        ImageColor3 = "togglebuttoncolor",
                     },
                     Position = UDim2.new(0.5, 8, 0, 0),
                     Size = UDim2.new(0, 45, 0, 45),
                     Parent = GUI,
                     Image = cfgs.ToggleButton,
-                    BackgroundTransparency = 0, -- Initially visible
+                    BackgroundTransparency = 0,
                 }, {
                     Create("UICorner", {
                         CornerRadius = UDim.new(0, 6),
@@ -229,69 +237,68 @@ local ClosureBindings = {
                 })
 
                 local function ToggleVisibility()
-                    local isVisible = canvas_group.Visible and (canvas_group.GroupTransparency < 1) -- Check actual visibility state from transparency
+                    local isVisible = canvas_group.Visible and (canvas_group.GroupTransparency < 1)
                     local targetPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
                     local targetTransparency = isVisible and 1 or 0
                     local toggleBtnTargetTransparency = isVisible and 0 or 1
 
                     local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 
-                    canvas_group.Visible = true -- Make sure it's visible to tween out
-                    togglebtn.Visible = true -- Make sure toggle button is visible to tween out
-
-                    -- Tween the main window
-                    TweenService:Create(canvas_group, tweenInfo, {
-                        Position = targetPosition,
-                        GroupTransparency = targetTransparency -- Use GroupTransparency for CanvasGroup
-                    }):Play()
-
-                    -- Tween the toggle button's transparency
-                    TweenService:Create(togglebtn, tweenInfo, {
-                        BackgroundTransparency = toggleBtnTargetTransparency,
-                        ImageTransparency = toggleBtnTargetTransparency,
-                        -- UIStroke transparency if applicable, assuming it's a direct child of togglebtn
-                    }):Play()
-
-                    local stroke = togglebtn:FindFirstChildOfClass("UIStroke")
-                    if stroke then
-                         TweenService:Create(stroke, tweenInfo, {
-                            Transparency = toggleBtnTargetTransparency,
-                        }):Play()
+                    canvas_group.Visible = true
+                    if cfgs.ToggleButton ~= "" then
+                        togglebtn.Visible = true
                     end
 
-                    -- If hiding, set Visible to false after tween completes
+                    TweenService:Create(canvas_group, tweenInfo, {
+                        Position = targetPosition,
+                        GroupTransparency = targetTransparency
+                    }):Play()
+
+                    if cfgs.ToggleButton ~= "" then
+                        TweenService:Create(togglebtn, tweenInfo, {
+                            BackgroundTransparency = toggleBtnTargetTransparency,
+                            ImageTransparency = toggleBtnTargetTransparency,
+                        }):Play()
+
+                        local stroke = togglebtn:FindFirstChildOfClass("UIStroke")
+                        if stroke then
+                            TweenService:Create(stroke, tweenInfo, {
+                                Transparency = toggleBtnTargetTransparency,
+                            }):Play()
+                        end
+                    end
+
                     if isVisible then
                         local connection
                         connection = AddConnection(TweenService:Create(canvas_group, tweenInfo, {}).Completed, function()
                             canvas_group.Visible = false
-                            -- Only hide togglebtn if cfgs.ToggleButton is provided
                             if cfgs.ToggleButton ~= "" then
                                 togglebtn.Visible = true
                             end
                             connection:Disconnect()
                         end)
                     else
-                        -- If showing, ensure toggle button is hidden during display of main window
                         if cfgs.ToggleButton ~= "" then
                             togglebtn.Visible = false
                         end
                     end
                 end
 
-                -- Initial call to ensure the window is hidden on load
-                togglebtn.Visible = false -- Hide toggle button initially as window is closed
-                canvas_group.GroupTransparency = 1 -- Ensure window starts hidden
-                canvas_group.Visible = false -- Window is not visible
-                -- No need for initial ToggleVisibility() call here, the above lines handle it.
-                -- User will either press keybind or click a custom toggle button to open.
+                if cfgs.ToggleButton == "" then
+                    togglebtn:Destroy()
+                else
+                    togglebtn.Visible = false
+                    canvas_group.GroupTransparency = 1
+                    canvas_group.Visible = false
 
-                MakeDraggable(togglebtn, togglebtn)
-                AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-                AddConnection(UserInputService.InputBegan, function(value)
-                    if value.KeyCode == cfgs.BindGui then
-                        ToggleVisibility()
-                    end
-                end)
+                    MakeDraggable(togglebtn, togglebtn)
+                    AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
+                    AddConnection(UserInputService.InputBegan, function(value)
+                        if value.KeyCode == cfgs.BindGui then
+                            ToggleVisibility()
+                        end
+                    end)
+                end
 
                 local top_frame = Create("Frame", {
                     ThemeProps = {
@@ -351,7 +358,7 @@ local ClosureBindings = {
                         Position = UDim2.new(0.5, 0, 0.5, 0),
                         Size = UDim2.new(1, -10, 1, -10),
                         ThemeProps = {
-                            ImageColor3 = "titlecolor", -- Use theme for icon color
+                            ImageColor3 = "titlecolor",
                         },
                         BorderSizePixel = 0,
                         ZIndex = 11,
@@ -380,7 +387,7 @@ local ClosureBindings = {
                         Position = UDim2.new(0.5, 0, 0.5, 0),
                         Size = UDim2.new(1, -10, 1, -10),
                         ThemeProps = {
-                            ImageColor3 = "titlecolor", -- Use theme for icon color
+                            ImageColor3 = "titlecolor",
                         },
                         BorderSizePixel = 0,
                         ZIndex = 11,
@@ -390,8 +397,10 @@ local ClosureBindings = {
                 AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
                 AddConnection(closebtn.MouseButton1Click, function()
                     canvas_group:Destroy()
-                    togglebtn:Destroy()
-                    Library.Window = nil -- Clear window reference
+                    if cfgs.ToggleButton ~= "" then
+                        togglebtn:Destroy()
+                    end
+                    Library.Window = nil
                 end)
 
                 local tab_frame = Create("Frame", {
@@ -420,7 +429,7 @@ local ClosureBindings = {
                         BackgroundColor3 = "maincolor",
                     },
                     ScrollBarThickness = 2,
-                    ScrollBarImageTransparency = 1, -- Start transparent for AddScrollAnim
+                    ScrollBarImageTransparency = 1,
                     CanvasSize = UDim2.new(0, 0, 0, 0),
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
@@ -456,7 +465,6 @@ local ClosureBindings = {
 
                 local TabModule = require(Components.tab):Init(containerFolder)
                 function Tabs:AddTab(title)
-                    -- Passing Library as context for the elements created within the tab
                     return TabModule:New(title, TabHolder, Library)
                 end
                 function Tabs:SelectTab(Tab)
@@ -483,36 +491,34 @@ local ClosureBindings = {
             local ActiveDialog = nil
 
             function DialogModule:Create(config, parent)
-                -- Remove existing dialog if any
-                if ActiveDialog and ActiveDialog.Parent then -- Check if parent exists before destroying
+                if ActiveDialog and ActiveDialog.Parent then
                     ActiveDialog:Destroy()
                 end
 
-                -- Use a transparent Frame as a blocker covering the whole parent
                 local blocker = Create("Frame", {
                     Size = UDim2.new(1, 0, 1, 0),
                     Position = UDim2.new(0, 0, 0, 0),
-                    BackgroundTransparency = 1, -- Fully transparent
+                    BackgroundTransparency = 1,
                     BorderSizePixel = 0,
-                    ZIndex = 100, -- High ZIndex to be on top
+                    ZIndex = 100,
                     Parent = parent,
-                    Active = true, -- Make it active to block input
+                    Active = true,
                 })
 
                 local uipadding_3 = Instance.new("UIPadding")
                 uipadding_3.PaddingBottom = UDim.new(0, 45)
                 uipadding_3.PaddingTop = UDim.new(0, 45)
-                uipadding_3.Parent = blocker -- Padding on the blocker to push dialog
+                uipadding_3.Parent = blocker
 
                 local dialog = Create("CanvasGroup", {
                     AnchorPoint = Vector2.new(0.5, 0),
                     AutomaticSize = Enum.AutomaticSize.Y,
-                    Position = UDim2.new(0.5, 0, 0, 0), -- Centered horizontally, at the top of the padded area
+                    Position = UDim2.new(0.5, 0, 0, 0),
                     Size = UDim2.new(0, 400, 0, 0),
                     ThemeProps = {
                         BackgroundColor3 = "maincolor",
                     },
-                    Parent = blocker, -- Parent to the blocker
+                    Parent = blocker,
                 }, {
                     Create("UICorner", { CornerRadius = UDim.new(0, 6) }),
                     Create("UIStroke", {
@@ -526,7 +532,6 @@ local ClosureBindings = {
                 uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
                 uilist_layout.Parent = dialog
 
-                -- Create top bar with title
                 Create("Frame", {
                     Size = UDim2.new(1, 0, 0, 40),
                     ThemeProps = { BackgroundColor3 = "maincolor" },
@@ -549,7 +554,6 @@ local ClosureBindings = {
                     }),
                 })
 
-                -- Create content container
                 local content = Create("TextLabel", {
                     Text = config.Content,
                     TextSize = 14,
@@ -573,7 +577,6 @@ local ClosureBindings = {
                 uipadding.PaddingTop = UDim.new(0, 8)
                 uipadding.Parent = content
 
-                -- Create button container
                 local buttonContainer = Create("Frame", {
                     Size = UDim2.new(1, 0, 0, 52),
                     AutomaticSize = Enum.AutomaticSize.Y,
@@ -599,16 +602,12 @@ local ClosureBindings = {
                     }),
                 })
 
-                -- Add buttons
                 for i, buttonConfig in ipairs(config.Buttons) do
                     local wrappedCallback = function()
                         buttonConfig.Callback()
-                        blocker:Destroy() -- Destroy the blocker frame when button is clicked
+                        blocker:Destroy()
                     end
 
-                    -- Create a new button instance with the container
-                    -- Elements table for elements defines container as self.Container.
-                    -- For dialog buttons, the parent is buttonContainer.
                     local tempElementSelf = { Container = buttonContainer }
                     local button = setmetatable(tempElementSelf, ButtonComponent):New({
                         Title = buttonConfig.Title,
@@ -617,7 +616,7 @@ local ClosureBindings = {
                     })
                 end
 
-                ActiveDialog = blocker -- Store the blocker to destroy later
+                ActiveDialog = blocker
                 return dialog
 
             end)()
@@ -691,12 +690,12 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 0),
                     Visible = true,
                     Parent = Element.topbox,
-                    Name = "Title", -- Added Name for easier FindFirstChild
+                    Name = "Title",
                 }, {
                     Create("UIPadding", {
                         PaddingBottom = UDim.new(0, 0),
                         PaddingLeft = UDim.new(0, 0),
-                        PaddingRight = UDim.new(0, 36), -- Reserved for potential icon/control
+                        PaddingRight = UDim.new(0, 36),
                         PaddingTop = UDim.new(0, 2),
                         Archivable = true,
                     }),
@@ -705,7 +704,7 @@ local ClosureBindings = {
                 local description = Create("TextLabel", {
                     Font = Enum.Font.Gotham,
                     RichText = true,
-                    Name = "Description", -- Added Name for easier FindFirstChild
+                    Name = "Description",
                     ThemeProps = {
                         TextColor3 = "elementdescription",
                         BackgroundColor3 = "maincolor",
@@ -731,7 +730,7 @@ local ClosureBindings = {
                 function Element:SetDesc(Set)
                     if Set == nil or Set == "" then
                         description.Visible = false
-                        description.Text = "" -- Clear text when hidden
+                        description.Text = ""
                     else
                         description.Visible = true
                         description.Text = Set
@@ -768,7 +767,7 @@ local ClosureBindings = {
                     BackgroundTransparency = 1,
                     BorderSizePixel = 0,
                     Position = UDim2.new(1, 0, 1, 0),
-                    Size = UDim2.new(0, 262, 0, 100), -- Size needs to be big enough to hold notifications
+                    Size = UDim2.new(0, 262, 0, 100),
                     Visible = true,
                     Parent = Gui,
                 }, {
@@ -790,20 +789,19 @@ local ClosureBindings = {
             end
 
             function Notif:ShowNotification(titleText, descriptionText, duration)
-                duration = duration or 5 -- Default duration if not provided
+                duration = duration or 5
 
                 local main = Create("CanvasGroup", {
                     AutomaticSize = Enum.AutomaticSize.Y,
-                    -- BackgroundColor3 will be handled by ThemeProps
-                    GroupTransparency = 1, -- Initial transparency for fade-in effect
+                    GroupTransparency = 1,
                     BorderSizePixel = 0,
                     ClipsDescendants = true,
                     Size = UDim2.new(0, 300, 0, 0),
-                    Position = UDim2.new(1, -10, 0.5, -150), -- Initial off-screen position for slide effect
+                    Position = UDim2.new(1, -10, 0.5, -150),
                     AnchorPoint = Vector2.new(1, 0.5),
                     Visible = true,
                     ThemeProps = {
-                        BackgroundColor3 = "maincolor", -- Use theme for background color
+                        BackgroundColor3 = "maincolor",
                     },
                     Parent = self.MainHolder,
                 }, {
@@ -813,7 +811,7 @@ local ClosureBindings = {
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
                         ThemeProps = {
-                            Color = "bordercolor", -- Use theme for border color
+                            Color = "bordercolor",
                         },
                         Thickness = 1,
                     }),
@@ -851,7 +849,7 @@ local ClosureBindings = {
                     Size = UDim2.new(0, 18, 0, 18),
                     Visible = true,
                     ThemeProps = {
-                        ImageColor3 = "notificationiconcolor", -- Use theme for icon color
+                        ImageColor3 = "notificationiconcolor",
                     },
                     Parent = topframe,
                 })
@@ -869,7 +867,7 @@ local ClosureBindings = {
                     Text = titleText,
                     Visible = true,
                     ThemeProps = {
-                        TextColor3 = "notificationtitlecolor", -- Use theme for title color
+                        TextColor3 = "notificationtitlecolor",
                     },
                     Parent = topframe,
                 }, {
@@ -891,7 +889,7 @@ local ClosureBindings = {
                     Text = descriptionText,
                     Visible = true,
                     ThemeProps = {
-                        TextColor3 = "notificationdescriptioncolor", -- Use theme for description color
+                        TextColor3 = "notificationdescriptioncolor",
                     },
                     Parent = holderin,
                 })
@@ -913,7 +911,7 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 2),
                     Visible = true,
                     ThemeProps = {
-                        BackgroundColor3 = "notificationprogresscolor", -- Use theme for progress color
+                        BackgroundColor3 = "notificationprogresscolor",
                     },
                     Parent = progress,
                 }, {
@@ -922,25 +920,22 @@ local ClosureBindings = {
                     }),
                 })
 
-                -- Анимация плавного появления для всех элементов
                 local fadeInTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 local fadePositionTween = TweenService:Create(main, fadeInTweenInfo, {
-                    Position = UDim2.new(1, -10, 1, -10), -- Final position: bottom-right
-                    GroupTransparency = 0, -- Fade in
+                    Position = UDim2.new(1, -10, 1, -10),
+                    GroupTransparency = 0,
                 })
                 fadePositionTween:Play()
 
-                -- Tween для прогресса
                 local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
                 local tween = TweenService:Create(progressindicator, tweenInfo, { Size = UDim2.new(0, 0, 0, 2) })
                 tween:Play()
 
-                -- Удаление уведомления после завершения Tween
                 local fadeOutTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
                 tween.Completed:Connect(function()
                     local fadeOutTween = TweenService:Create(main, fadeOutTweenInfo, {
                         GroupTransparency = 1,
-                        Position = UDim2.new(1, -10, 1, 50) -- Slide out downwards
+                        Position = UDim2.new(1, -10, 1, 50)
                     })
                     fadeOutTween:Play()
                     fadeOutTween.Completed:Connect(function()
@@ -1020,7 +1015,6 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 0),
                     Visible = true,
                     Parent = Section.SectionFrame,
-                    -- Disabled if locked, rather than destroying it
                     Active = not cfgs.Locked,
                     Selectable = not cfgs.Locked,
                     AutoButtonColor = not cfgs.Locked,
@@ -1046,7 +1040,7 @@ local ClosureBindings = {
                     Rotation = 90,
                     Name = "chevron-down",
                     ZIndex = 99,
-                    Parent = topbox, -- Parent to topbox
+                    Parent = topbox,
                 })
 
                 local name = Create("TextLabel", {
@@ -1066,10 +1060,10 @@ local ClosureBindings = {
                     BackgroundTransparency = 1,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
-                    Size = UDim2.new(1, 0, 0, 0), -- AutomaticSize.Y will handle height
+                    Size = UDim2.new(1, 0, 0, 0),
                     Visible = false,
                     Parent = topbox,
-                }, {}) -- chevronIcon is a sibling of this TextLabel within topbox due to UIListLayout
+                }, {})
 
                 if cfgs.Title ~= nil and cfgs.Title ~= "" then
                     name.Text = cfgs.Title
@@ -1110,14 +1104,10 @@ local ClosureBindings = {
                     },
                     BorderSizePixel = 0,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
-                    Size = UDim2.new(1, 0, 0, 0), -- Start collapsed
+                    Size = UDim2.new(1, 0, 0, 0),
                     Visible = true,
                     Parent = Section.SectionFrame,
                 }, {
-                    Create("UIListLayout", {
-                        Padding = UDim.new(0, 12),
-                        SortOrder = Enum.SortOrder.LayoutOrder,
-                    }, {}),
                     Create("UIPadding", {
                         PaddingBottom = UDim.new(0, 1),
                         PaddingLeft = UDim.new(0, 6),
@@ -1125,12 +1115,15 @@ local ClosureBindings = {
                         PaddingTop = UDim.new(0, 1),
                         Archivable = true,
                     }),
+                    Create("UIListLayout", {
+                        Padding = UDim.new(0, 12),
+                        SortOrder = Enum.SortOrder.LayoutOrder,
+                    }),
                 })
 
                 local isExpanded = cfgs.Defualt
                 if cfgs.Defualt == true then
                     chevronIcon.Rotation = 0
-                    -- Initial set for expanded size if default
                     Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18)
                 end
 
@@ -1138,12 +1131,10 @@ local ClosureBindings = {
                     isExpanded = not isExpanded
                     local targetRotation = isExpanded and 0 or 90
 
-                    -- Animate chevron rotation
                     game:GetService("TweenService"):Create(chevronIcon, TweenInfo.new(0.3), {
                         Rotation = targetRotation
                     }):Play()
 
-                    -- Animate section container
                     local targetSize = isExpanded and UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18) or UDim2.new(1, 0, 0, 0)
                     game:GetService("TweenService"):Create(Section.SectionContainer, TweenInfo.new(0.3), {
                         Size = targetSize
@@ -1155,7 +1146,6 @@ local ClosureBindings = {
                     AddConnection(chevronIcon.MouseButton1Click, toggleSection)
                 end
 
-                -- Update container size if children change and section is expanded
                 AddConnection(Section.SectionContainer.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
                     if isExpanded then
                         Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18)
@@ -1177,16 +1167,7 @@ local ClosureBindings = {
             local Create = Tools.Create
             local AddConnection = Tools.AddConnection
             local AddScrollAnim = Tools.AddScrollAnim
-            local CurrentThemeProps = Tools.GetPropsCurrentTheme() -- This needs to be dynamic or refreshed
-
-            -- Add debug toggle
-            local SEARCH_DEBUG = false
-
-            local function debugLog(...)
-                if SEARCH_DEBUG then
-                    print("[Search]", ...)
-                end
-            end
+            local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
             local TabModule = {
                 Window = nil,
@@ -1194,7 +1175,7 @@ local ClosureBindings = {
                 Containers = {},
                 SelectedTab = 0,
                 TabCount = 0,
-                Library = nil, -- Added Library reference
+                Library = nil,
             }
 
             function TabModule:Init(Window)
@@ -1202,7 +1183,6 @@ local ClosureBindings = {
                 return TabModule
             end
 
-            -- Added Library as an argument to New
             function TabModule:New(Title, Parent, Library)
                 local Window = TabModule.Window
                 local Elements = Library.Elements
@@ -1214,8 +1194,8 @@ local ClosureBindings = {
                     Selected = false,
                     Name = Title,
                     Type = "Tab",
-                    Container = nil, -- Will be set below
-                    Library = Library, -- Pass library reference to tab
+                    Container = nil,
+                    Library = Library,
                 }
 
                 Tab.TabBtn = Create("TextButton", {
@@ -1231,7 +1211,6 @@ local ClosureBindings = {
                     Create("TextLabel", {
                         Name = "Title",
                         Font = Enum.Font.Gotham,
-                        -- Initial text color for unselected tab
                         ThemeProps = {
                             TextColor3 = "offTextBtn",
                             BackgroundColor3 = "maincolor",
@@ -1247,7 +1226,6 @@ local ClosureBindings = {
                     }),
                     Create("Frame", {
                         Name = "Line",
-                        -- Initial background color for unselected tab
                         ThemeProps = {
                             BackgroundColor3 = "offBgLineBtn",
                         },
@@ -1272,14 +1250,14 @@ local ClosureBindings = {
                     Parent = Window,
                 }, {
                     Create("UIPadding", {
-                        PaddingBottom = UDim.new(0, 12), -- Added padding for bottom
-                        PaddingTop = UDim.new(0, 12), -- Added padding for top
-                        PaddingLeft = UDim.new(0, 12), -- Added padding for left
-                        PaddingRight = UDim.new(0, 12), -- Added padding for right
+                        PaddingBottom = UDim.new(0, 12),
+                        PaddingTop = UDim.new(0, 12),
+                        PaddingLeft = UDim.new(0, 12),
+                        PaddingRight = UDim.new(0, 12),
                     }),
                     Create("UIListLayout", {
                         SortOrder = Enum.SortOrder.LayoutOrder,
-                        Padding = UDim.new(0, 12), -- Added padding between elements
+                        Padding = UDim.new(0, 12),
                     }),
                 })
 
@@ -1288,145 +1266,6 @@ local ClosureBindings = {
                 AddConnection(Tab.Container.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
                     Tab.Container.CanvasSize = UDim2.new(0, 0, 0, Tab.Container.UIListLayout.AbsoluteContentSize.Y + 28)
                 end)
-
-                -- Add search container at the top of the tab container
-                -- SearchContainer should be parented directly to the main window's containerFolder or a dedicated place
-                -- where it can be toggled by SelectTab, not to 'Parent' (which is TabHolder)
-                Tab.SearchContainer = Create("Frame", {
-                    Size = UDim2.new(1, -140, 0, 36), -- Adjusted size to match tab container width
-                    Position = UDim2.new(0, 140, 0, 40), -- Positioned over the tab content area
-                    BackgroundTransparency = 1,
-                    Parent = Window, -- Parent to the main Window GUI
-                    LayoutOrder = 1, -- Appears over everything in its layer, or relative to its parent
-                    Visible = false, -- Initially hidden
-                    ThemeProps = {
-                        BackgroundColor3 = "maincolor",
-                    },
-                }, {
-                    Create("UIPadding", {
-                        PaddingBottom = UDim.new(0, 2),
-                        PaddingLeft = UDim.new(0, 12),
-                        PaddingRight = UDim.new(0, 12),
-                        PaddingTop = UDim.new(0, 2),
-                    }),
-                })
-
-
-                local SearchBox = Create("TextBox", {
-                    Size = UDim2.new(1, 0, 0, 32),
-                    Position = UDim2.new(0, 0, 0, 0),
-                    PlaceholderText = "Search elements...",
-                    TextXAlignment = Enum.TextXAlignment.Left,
-                    Text = "",
-                    Font = Enum.Font.Gotham,
-                    TextSize = 14,
-                    BackgroundTransparency = 1,
-                    ThemeProps = {
-                        -- BackgroundColor3 = "elementbackground",
-                        TextColor3 = "titlecolor",
-                        PlaceholderColor3 = "descriptioncolor",
-                    },
-                    Parent = Tab.SearchContainer,
-                    ClearTextOnFocus = false,
-                }, {
-                    Create("UIPadding", {
-                        PaddingLeft = UDim.new(0, 8),
-                        PaddingRight = UDim.new(0, 8),
-                    }),
-
-                    Create("UIStroke", {
-                        ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = {
-                            Color = "bordercolor",
-                        },
-                        Thickness = 1,
-                    }),
-                })
-
-                -- Function to filter elements based on search text
-                local function searchInElement(element, searchText)
-                    local title = element:FindFirstChild("Title", true) -- Search recursively within the element
-                    local desc = element:FindFirstChild("Description", true)
-
-                    if title then
-                        debugLog("Checking title:", title.Text)
-                        local cleanTitle = title.Text:gsub("^%s+", "")
-                        if string.find(string.lower(cleanTitle), searchText, 1, true) then -- Added plain flag
-                            debugLog("Found match in title")
-                            return true
-                        end
-                    end
-
-                    if desc then
-                        debugLog("Checking description:", desc.Text)
-                        if string.find(string.lower(desc.Text), searchText, 1, true) then -- Added plain flag
-                            debugLog("Found match in description")
-                            return true
-                        end
-                    end
-
-                    return false
-                end
-
-                local function updateSearch()
-                    local searchText = string.lower(SearchBox.Text)
-                    debugLog("Search text:", searchText)
-
-                    -- Only perform search if the tab's container is visible
-                    if not Tab.Container.Visible then
-                        debugLog("Tab container not visible, skipping search")
-                        return
-                    end
-
-                    -- Loop through all children in the container
-                    for _, child in ipairs(Tab.Container:GetChildren()) do
-                        if child ~= Tab.SearchContainer then -- Exclude search container itself
-                            if child.Name == "Section" then
-                                -- Handle section elements
-                                local sectionContainer = child:FindFirstChild("SectionContainer")
-                                if sectionContainer then
-                                    local anyElementVisibleInSection = false
-                                    debugLog("Checking section:", child.Name)
-
-                                    -- Search through elements in section
-                                    for _, element in ipairs(sectionContainer:GetChildren()) do
-                                        if element.Name == "Element" then
-                                            local elementVisible = searchInElement(element, searchText)
-                                            element.Visible = elementVisible or searchText == ""
-                                            if elementVisible then
-                                                anyElementVisibleInSection = true
-                                            end
-                                        end
-                                    end
-
-                                    -- Show section if any elements match or search is empty
-                                    child.Visible = anyElementVisibleInSection or searchText == ""
-                                    debugLog("Section visibility:", child.Visible)
-                                end
-                            elseif child.Name == "Element" then
-                                -- Handle standalone elements (e.g., Paragraph)
-                                local elementVisible = searchInElement(child, searchText)
-                                child.Visible = elementVisible or searchText == ""
-                                debugLog("Standalone element visibility:", child.Visible)
-                            else
-                                -- For other UI elements that are direct children of the tab container,
-                                -- assume they are elements to be searched.
-                                local elementVisible = searchInElement(child, searchText)
-                                child.Visible = elementVisible or searchText == ""
-                                debugLog("Other element visibility:", child.Visible)
-                            end
-                        end
-                    end
-                end
-
-                -- Update search when tab is selected and becomes visible
-                AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
-                    if Tab.Container.Visible then
-                        updateSearch()
-                    end
-                end)
-
-                AddConnection(SearchBox:GetPropertyChangedSignal("Text"), updateSearch)
 
                 Tab.ContainerFrame = Tab.Container
 
@@ -1469,36 +1308,33 @@ local ClosureBindings = {
 
                         GroupButton.Container = GroupButton.GroupContainer
 
-                        -- Pass necessary context to Elements (Library, etc.)
                         local tempSelf = {
                             Container = GroupButton.Container,
                             Type = GroupButton.Type,
-                            ScrollFrame = self.ScrollFrame, -- Assuming tabs don't have a direct scroll frame here, might need adjustment
+                            ScrollFrame = self.ScrollFrame,
                             Library = Tab.Library,
                         }
-                        setmetatable(GroupButton, Elements) -- Set metatable to Elements to use AddX functions
+                        setmetatable(GroupButton, Elements)
                         return GroupButton
                     end
 
-                    -- Pass necessary context to Elements (Library, etc.)
                     local tempSelf = {
                         Container = Section.Container,
                         Type = Section.Type,
-                        ScrollFrame = self.ScrollFrame, -- Assuming tabs don't have a direct scroll frame here, might need adjustment
+                        ScrollFrame = self.ScrollFrame,
                         Library = Tab.Library,
                     }
-                    setmetatable(Section, Elements) -- Set metatable to Elements to use AddX functions
+                    setmetatable(Section, Elements)
                     return Section
                 end
 
-                -- setmetatable(Tab, Elements)
                 return Tab
             end
 
             function TabModule:SelectTab(Tab)
                 TabModule.SelectedTab = Tab
 
-                local currentThemeProps = Tools.GetPropsCurrentTheme() -- Get current theme props dynamically
+                local currentThemeProps = Tools.GetPropsCurrentTheme()
 
                 for _, v in next, TabModule.Tabs do
                     TweenService:Create(
@@ -1512,11 +1348,6 @@ local ClosureBindings = {
                         { BackgroundColor3 = currentThemeProps.offBgLineBtn }
                     ):Play()
                     v.Selected = false
-
-                    -- Hide search container for non-selected tabs
-                    if v.SearchContainer then
-                        v.SearchContainer.Visible = false
-                    end
                 end
 
                 local selectedTab = TabModule.Tabs[Tab]
@@ -1539,12 +1370,6 @@ local ClosureBindings = {
                 task.spawn(function()
                     for _, Container in pairs(TabModule.Containers) do
                         Container.Visible = false
-                    end
-
-                    -- Show search container for selected tab
-                    if selectedTab.SearchContainer then
-                        selectedTab.SearchContainer.Visible = true
-                        selectedTab.SearchContainer.LayoutOrder = 0 -- Ensure it's on top if not already.
                     end
 
                     TabModule.Containers[Tab].Visible = true
@@ -1599,19 +1424,17 @@ local ClosureBindings = {
             Element.__index = Element
             Element.__type = "Bind"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Bind - Missing Title")
                 Config.Description = Config.Description or nil
                 Config.Hold = Config.Hold or false
                 Config.Callback = Config.Callback or function() end
                 Config.ChangeCallback = Config.ChangeCallback or function() end
-                Config.Default = Config.Default or "None" -- Ensure a default for display if not set
+                Config.Default = Config.Default or "None"
 
                 local Bind = { Value = nil, Binding = false, Type = "Bind" }
                 local Holding = false
 
-                -- Use the passed Container
                 local BindFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
                 local value = Create("TextLabel", {
@@ -1645,7 +1468,7 @@ local ClosureBindings = {
                     }),
                 })
 
-                AddConnection(BindFrame.Frame.InputBegan, function(Input) -- Changed from InputEnded to InputBegan
+                AddConnection(BindFrame.Frame.InputBegan, function(Input)
                     if Input.UserInputType == Enum.UserInputType.MouseButton1 then
                         if Bind.Binding then
                             return
@@ -1657,8 +1480,8 @@ local ClosureBindings = {
 
                 function Bind:Set(Key)
                     Bind.Binding = false
-                    Bind.Value = Key and (Key.Name or Key) or Bind.Value -- Handle KeyCode.Name
-                    value.Text = tostring(Bind.Value) -- Ensure text is a string
+                    Bind.Value = Key and (Key.Name or Key) or Bind.Value
+                    value.Text = tostring(Bind.Value)
                     Config.ChangeCallback(Bind.Value)
                 end
 
@@ -1666,7 +1489,6 @@ local ClosureBindings = {
                     if UserInputService:GetFocusedTextBox() then
                         return
                     end
-                    -- Check if InputType or KeyCode matches the bind
                     local isMatchingBind = (Input.KeyCode.Name == tostring(Bind.Value)) or (Input.UserInputType.Name == tostring(Bind.Value))
 
                     if isMatchingBind and not Bind.Binding then
@@ -1677,15 +1499,13 @@ local ClosureBindings = {
                             Config.Callback()
                         end
                     elseif Bind.Binding then
-                        local Key = Input.KeyCode -- Default to KeyCode
+                        local Key = Input.KeyCode
                         if Input.UserInputType ~= Enum.UserInputType.Keyboard then
-                             -- If it's not a keyboard input, use UserInputType name
                             Key = Input.UserInputType
                         end
 
-                        -- Check if the key is blacklisted (pcall is not needed, table.find does not error)
                         if table.find(BlacklistedKeys, Key) then
-                            Key = Bind.Value -- Revert to previous value if blacklisted
+                            Key = Bind.Value
                         end
                         Bind:Set(Key)
                     end
@@ -1721,7 +1541,6 @@ local ClosureBindings = {
             local Create = Tools.Create
             local AddConnection = Tools.AddConnection
 
-            -- ButtonStyles now use ThemeProps keys, so they can dynamically react to theme changes
             local ButtonStyles = {
                 Primary = {
                     ThemeProps = {
@@ -1733,11 +1552,11 @@ local ClosureBindings = {
                     BorderSizePixel = 0,
                     HoverConfig = {
                         ThemeProps = { BackgroundColor3 = "primaryButtonHoverBgColor" },
-                        BackgroundTransparency = 0.1, -- Slightly more transparent on hover
+                        BackgroundTransparency = 0.1,
                     },
                     FocusConfig = {
                         ThemeProps = { BackgroundColor3 = "primaryButtonFocusBgColor" },
-                        BackgroundTransparency = 0.2, -- Even more transparent on focus
+                        BackgroundTransparency = 0.2,
                     },
                 },
                 Ghost = {
@@ -1781,9 +1600,8 @@ local ClosureBindings = {
             }
 
             local function ApplyTweens(button, config, uiStroke)
-                local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- Slightly faster tween
+                local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
-                -- Apply ThemeProps first if available in config
                 if config.ThemeProps then
                     local currentThemeProps = Tools.GetPropsCurrentTheme()
                     for propName, themeKey in pairs(config.ThemeProps) do
@@ -1795,19 +1613,18 @@ local ClosureBindings = {
 
                 local tweenGoals = {}
                 for property, value in pairs(config) do
-                    if property ~= "UIStroke" and property ~= "ThemeProps" then -- Exclude ThemeProps from direct tweenGoals
+                    if property ~= "UIStroke" and property ~= "ThemeProps" then
                         tweenGoals[property] = value
                     end
                 end
 
-                if next(tweenGoals) then -- Only create tween if there are goals
+                if next(tweenGoals) then
                     local tween = TweenService:Create(button, tweenInfo, tweenGoals)
                     tween:Play()
                 end
 
 
                 if uiStroke and config.UIStroke then
-                    -- Apply ThemeProps for UIStroke first
                     if config.UIStroke.ThemeProps then
                         local currentThemeProps = Tools.GetPropsCurrentTheme()
                         for propName, themeKey in pairs(config.UIStroke.ThemeProps) do
@@ -1841,7 +1658,6 @@ local ClosureBindings = {
                     AutomaticSize = Enum.AutomaticSize.XY,
                     Visible = true,
                     Parent = parent,
-                    -- Pass ThemeProps from the button style config directly to Create
                     ThemeProps = config.ThemeProps,
                     BackgroundTransparency = config.BackgroundTransparency,
                     BorderColor3 = config.BorderColor3,
@@ -1869,20 +1685,18 @@ local ClosureBindings = {
                         Thickness = config.UIStroke.Thickness,
                         Archivable = true,
                         Parent = button,
-                        -- Pass ThemeProps from UIStroke config
                         ThemeProps = config.UIStroke.ThemeProps,
                     })
                 end
 
-                -- Store initial state to revert to on MouseLeave
                 local initialState = {
                     BackgroundTransparency = config.BackgroundTransparency,
                     BorderColor3 = config.BorderColor3,
                     BorderSizePixel = config.BorderSizePixel,
-                    ThemeProps = config.ThemeProps, -- For text color and bg color
+                    ThemeProps = config.ThemeProps,
                     UIStroke = config.UIStroke and {
                         Thickness = config.UIStroke.Thickness,
-                        ThemeProps = config.UIStroke.ThemeProps, -- For stroke color
+                        ThemeProps = config.UIStroke.ThemeProps,
                     } or nil,
                 }
 
@@ -1904,8 +1718,6 @@ local ClosureBindings = {
                 end)
 
                 AddConnection(button.MouseButton1Up, function()
-                    -- Revert to hover state if mouse is still over the button
-                    -- Otherwise, revert to initial state
                     if button:IsMouseOver() and config.HoverConfig then
                         ApplyTweens(button, config.HoverConfig, uiStroke)
                     else
@@ -1916,14 +1728,12 @@ local ClosureBindings = {
                 return button
             end
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Button - Missing Title")
                 Config.Variant = Config.Variant or "Primary"
                 Config.Callback = Config.Callback or function() end
                 local Button = {}
 
-                -- Use the passed Container
                 Button.StyledButton = CreateButton(Config.Variant, Config.Title, Container)
                 AddConnection(Button.StyledButton.MouseButton1Click, Config.Callback)
 
@@ -1948,16 +1758,15 @@ local ClosureBindings = {
             local AddConnection = Tools.AddConnection
 
             local RainbowColorValue = 0
-            local rainbowIncrement = 1 / 255 -- Increment for smooth rainbow transition
-            local hueSelectionPosition = 0 -- For hue selector display
+            local rainbowIncrement = 1 / 255
+            local hueSelectionPosition = 0
 
-            local rainbowUpdateConnection = nil -- To manage the rainbow coroutine
+            local rainbowUpdateConnection = nil
 
             local Element = {}
             Element.__index = Element
             Element.__type = "Colorpicker"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Colorpicker - Missing Title")
                 Config.Description = Config.Description or nil
@@ -1968,7 +1777,7 @@ local ClosureBindings = {
                     Transparency = Config.Transparency or 0,
                     Type = "Colorpicker",
                     Callback = Config.Callback or function(Color) end,
-                    RainbowMode = false, -- Renamed for clarity
+                    RainbowMode = false,
                     ColorpickerToggle = false,
                     Hue = 0,
                     Sat = 0,
@@ -1983,24 +1792,22 @@ local ClosureBindings = {
                 end
                 Colorpicker:SetHSVFromRGB(Colorpicker.Value)
 
-                -- Use the passed Container
                 local ColorpickerFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
                 local InputFrame = Create("CanvasGroup", {
-                    -- BackgroundColor3 will be handled by ThemeProps
                     BackgroundTransparency = 1,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
                     Size = UDim2.new(1, 0, 0, 30),
                     Visible = true,
                     ThemeProps = {
-                        BackgroundColor3 = "maincolor", -- Use theme for background (if not transparent)
+                        BackgroundColor3 = "maincolor",
                     },
                     Parent = ColorpickerFrame.Frame,
                 }, {
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = { Color = "bordercolor" }, -- Use theme for border color
+                        ThemeProps = { Color = "bordercolor" },
                         Enabled = true,
                         LineJoinMode = Enum.LineJoinMode.Round,
                         Thickness = 1,
@@ -2014,7 +1821,7 @@ local ClosureBindings = {
 
                 local colorBox = Create("Frame", {
                     AnchorPoint = Vector2.new(0, 0.5),
-                    BackgroundColor3 = Colorpicker.Value, -- Use initial default color
+                    BackgroundColor3 = Colorpicker.Value,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
                     Position = UDim2.new(0, 0, 0.5, 0),
@@ -2024,7 +1831,7 @@ local ClosureBindings = {
                 }, {
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-                        ThemeProps = { Color = "bordercolor" }, -- Use theme for border color
+                        ThemeProps = { Color = "bordercolor" },
                         Enabled = true,
                         LineJoinMode = Enum.LineJoinMode.Round,
                         Thickness = 1,
@@ -2036,7 +1843,7 @@ local ClosureBindings = {
                     Font = Enum.Font.GothamMedium,
                     LineHeight = 1.2000000476837158,
                     PlaceholderColor3 = Color3.fromRGB(178, 178, 178),
-                    Text = "#" .. Colorpicker.Value:ToHex(), -- Initial hex value
+                    Text = "#" .. Colorpicker.Value:ToHex(),
                     TextSize = 14,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     AnchorPoint = Vector2.new(1, 0.5),
@@ -2047,8 +1854,8 @@ local ClosureBindings = {
                     Size = UDim2.new(1, -30, 1, 0),
                     Visible = true,
                     ThemeProps = {
-                        TextColor3 = "titlecolor", -- Use theme for text color
-                        PlaceholderColor3 = "descriptioncolor", -- Use theme for placeholder color
+                        TextColor3 = "titlecolor",
+                        PlaceholderColor3 = "descriptioncolor",
                     },
                     Parent = InputFrame,
                 }, {
@@ -2068,13 +1875,11 @@ local ClosureBindings = {
                             Colorpicker:SetHSVFromRGB(Result)
                             UpdateColorPicker()
                         else
-                            -- Revert to current color's hex if invalid input
                             inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
                         end
                     end
                 end)
 
-                -- Colorpicker
                 local colorpicker_frame = Create("TextButton", {
                     AutoButtonColor = false,
                     Text = "",
@@ -2085,7 +1890,7 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 166),
                     Visible = false,
                     ThemeProps = {
-                        BackgroundColor3 = "containeritemsbg", -- Use theme for background color
+                        BackgroundColor3 = "containeritemsbg",
                     },
                     Parent = ColorpickerFrame.Frame,
                 }, {
@@ -2100,7 +1905,7 @@ local ClosureBindings = {
 
                 local color = Create("ImageLabel", {
                     Image = "rbxassetid://4155801252",
-                    BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1), -- Initial hue background
+                    BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1),
                     Size = UDim2.new(1, -10, 0, 127),
                     Visible = true,
                     ZIndex = 10,
@@ -2126,7 +1931,7 @@ local ClosureBindings = {
                     }),
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
-                        Color = Color3.fromRGB(255, 255, 255), -- Keep white for selection circle
+                        Color = Color3.fromRGB(255, 255, 255),
                         Enabled = true,
                         LineJoinMode = Enum.LineJoinMode.Round,
                         Thickness = 1.2000000476837158,
@@ -2169,7 +1974,7 @@ local ClosureBindings = {
                     BackgroundTransparency = 1,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
-                    Position = UDim2.new(0.5, 0, Colorpicker.Hue, 0), -- Initial hue position
+                    Position = UDim2.new(0.5, 0, Colorpicker.Hue, 0),
                     Size = UDim2.new(0, 8, 0, 8),
                     Visible = true,
                     Parent = hue,
@@ -2180,7 +1985,7 @@ local ClosureBindings = {
                     }),
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
-                        Color = Color3.fromRGB(255, 255, 255), -- Keep white for selection circle
+                        Color = Color3.fromRGB(255, 255, 255),
                         Enabled = true,
                         LineJoinMode = Enum.LineJoinMode.Round,
                         Thickness = 1.2000000476837158,
@@ -2201,20 +2006,20 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 16),
                     Visible = true,
                     ThemeProps = {
-                        BackgroundColor3 = "maincolor", -- Use theme for background (if not transparent)
+                        BackgroundColor3 = "maincolor",
                     },
                     Parent = colorpicker_frame,
                 })
 
                 local togglebox = Create("Frame", {
-                    BackgroundTransparency = (Colorpicker.RainbowMode and 0 or 1), -- Initial state
+                    BackgroundTransparency = (Colorpicker.RainbowMode and 0 or 1),
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
                     Size = UDim2.new(0, 16, 0, 16),
                     Visible = true,
                     ThemeProps = {
-                        BackgroundColor3 = "togglebg", -- Use theme for toggle background
-                        BorderColor3 = "toggleborder", -- Use theme for toggle border
+                        BackgroundColor3 = "togglebg",
+                        BorderColor3 = "toggleborder",
                     },
                     Parent = rainbowtoggle,
                 }, {
@@ -2225,7 +2030,7 @@ local ClosureBindings = {
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
                         ThemeProps = {
-                            Color = "toggleborder", -- Use theme for stroke color
+                            Color = "toggleborder",
                         },
                         Enabled = true,
                         LineJoinMode = Enum.LineJoinMode.Round,
@@ -2242,12 +2047,13 @@ local ClosureBindings = {
                         Size = UDim2.new(0, 12, 0, 12),
                         Visible = true,
                         ThemeProps = {
-                            ImageColor3 = "maincolor", -- Use theme for checkmark color
+                            ImageColor3 = "maincolor",
                         },
                     }),
                     Create("TextLabel", {
                         Font = Enum.Font.Gotham,
                         Text = "Rainbow",
+                        TextColor3 = Color3.fromRGB(234, 234, 234),
                         TextSize = 14,
                         TextXAlignment = Enum.TextXAlignment.Left,
                         BackgroundTransparency = 1,
@@ -2256,7 +2062,7 @@ local ClosureBindings = {
                         Size = UDim2.new(1, 0, 0, 16),
                         Visible = true,
                         ThemeProps = {
-                            TextColor3 = "titlecolor", -- Use theme for text color
+                            TextColor3 = "titlecolor",
                         },
                     }),
                 })
@@ -2271,14 +2077,12 @@ local ClosureBindings = {
                     colorBox.BackgroundColor3 = newColor
                     color.BackgroundColor3 = Color3.fromHSV(Colorpicker.Hue, 1, 1)
                     color_selection.BackgroundColor3 = newColor
-                    color_selection.Position = UDim2.new(Colorpicker.Sat, 0, 1 - Colorpicker.Vib, 0) -- Update selection position
+                    color_selection.Position = UDim2.new(Colorpicker.Sat, 0, 1 - Colorpicker.Vib, 0)
 
-                    -- Update hex input safely
                     if inputHex then
                         inputHex.Text = "#" .. newColor:ToHex()
                     end
 
-                    -- Call callback safely
                     pcall(Colorpicker.Callback, newColor)
                 end
 
@@ -2378,8 +2182,7 @@ local ClosureBindings = {
                         startRainbowMode()
                     else
                         stopRainbowMode()
-                        -- Reset to the last non-rainbow color or a default when stopping rainbow mode
-                        Colorpicker:SetHSVFromRGB(Colorpicker.Value) -- Revert to stored value or a default
+                        Colorpicker:SetHSVFromRGB(Colorpicker.Value)
                         UpdateColorPicker()
                     end
                 end)
@@ -2390,20 +2193,16 @@ local ClosureBindings = {
                         return
                     end
 
-                    self.Value = newColor -- Update stored value
+                    self.Value = newColor
                     self:SetHSVFromRGB(newColor)
 
-                    -- Update UI elements safely
                     if color_selection and colorBox and hue_selection then
-                        -- Position hue selection based on new hue
                         hue_selection.Position = UDim2.new(0.5, 0, self.Hue, 0)
-                        -- Position color selection based on new saturation and value
                         color_selection.Position = UDim2.new(self.Sat, 0, 1 - self.Vib, 0)
                         UpdateColorPicker()
                     end
                 end
 
-                -- Initial update to reflect default color
                 UpdateColorPicker()
 
                 Library.Flags[Idx] = Colorpicker
@@ -2421,17 +2220,16 @@ local ClosureBindings = {
             local Tools = require(script.Parent.Parent.tools)
             local Components = script.Parent.Parent.components
             local TweenService = game:GetService("TweenService")
-            local UserInputService = game:GetService("UserInputService") -- Added for FocusLost on dropdown
+            local UserInputService = game:GetService("UserInputService")
 
             local Create = Tools.Create
             local AddConnection = Tools.AddConnection
-            local CurrentThemeProps = Tools.GetPropsCurrentTheme() -- This needs to be dynamic or refreshed
+            local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
             local Element = {}
             Element.__index = Element
             Element.__type = "Dropdown"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Dropdown - Missing Title")
                 Config.Description = Config.Description or nil
@@ -2455,7 +2253,6 @@ local ClosureBindings = {
                 }
                 local MaxElements = 5
 
-                -- Use the passed Container
                 local DropdownFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
                 local DropdownElement = Create("Frame", {
@@ -2486,7 +2283,7 @@ local ClosureBindings = {
                         Wraps = true,
                         FillDirection = Enum.FillDirection.Horizontal,
                         SortOrder = Enum.SortOrder.LayoutOrder,
-                        Padding = UDim.new(0, 4), -- Added padding for flex items
+                        Padding = UDim.new(0, 4),
                     }, {}),
                 })
 
@@ -2559,7 +2356,7 @@ local ClosureBindings = {
                     Size = UDim2.new(1, 0, 0, 0),
                     Visible = false,
                     Parent = DropdownFrame.Frame,
-                    ZIndex = DropdownFrame.Frame.ZIndex + 1, -- Ensure it's above other elements
+                    ZIndex = DropdownFrame.Frame.ZIndex + 1,
                 }, {
                     Create("UIStroke", {
                         ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -2595,7 +2392,6 @@ local ClosureBindings = {
                     toggleDropcontVisibility(true)
                 end)
 
-                -- Listen for mouse click outside the dropdown to close it
                 AddConnection(UserInputService.InputBegan, function(input)
                     if Dropdown.Toggled and input.UserInputType == Enum.UserInputType.MouseButton1 then
                         local mousePosition = input.Position
@@ -2603,10 +2399,10 @@ local ClosureBindings = {
                         local dropcontAbsoluteSize = dropcont.AbsoluteSize
 
                         local isMouseOverDropdown = (mousePosition.X >= dropcontAbsolutePosition.X and mousePosition.X <= dropcontAbsolutePosition.X + dropcontAbsoluteSize.X) and
-                                                    (mousePosition.Y >= dropcontAbsolutePosition.Y and mousePosition.Y <= dropcontAbsolutePosition.Y + dropcontAbsoluteSize.Y)
+                            (mousePosition.Y >= dropcontAbsolutePosition.Y and mousePosition.Y <= dropcontAbsolutePosition.Y + dropcontAbsoluteSize.Y)
 
                         local isMouseOverDropdownElement = (mousePosition.X >= DropdownElement.AbsolutePosition.X and mousePosition.X <= DropdownElement.AbsolutePosition.X + DropdownElement.AbsoluteSize.X) and
-                                                           (mousePosition.Y >= DropdownElement.AbsolutePosition.Y and mousePosition.Y <= DropdownElement.AbsolutePosition.Y + DropdownElement.AbsoluteSize.Y)
+                            (mousePosition.Y >= DropdownElement.AbsolutePosition.Y and mousePosition.Y <= DropdownElement.AbsolutePosition.Y + DropdownElement.AbsoluteSize.Y)
 
                         if not isMouseOverDropdown and not isMouseOverDropdownElement then
                             toggleDropcontVisibility(false)
@@ -2615,11 +2411,6 @@ local ClosureBindings = {
                 end)
 
 
-                -- No longer need a MouseButton1Click on the frame itself if using global InputBegan
-                -- AddConnection(DropdownFrame.Frame.MouseButton1Click, function()
-                -- 	toggleDropcontVisibility(not Dropdown.Toggled)
-                -- end)
-
                 function SearchOptions()
                     local searchText = string.lower(search.Text)
                     for _, v in ipairs(dropcont:GetChildren()) do
@@ -2627,7 +2418,7 @@ local ClosureBindings = {
                             local textLabel = v:FindFirstChildOfClass("TextLabel")
                             if textLabel then
                                 local buttonText = string.lower(textLabel.Text)
-                                if string.find(buttonText, searchText, 1, true) then -- Added plain flag
+                                if string.find(buttonText, searchText, 1, true) then
                                     v.Visible = true
                                 else
                                     v.Visible = false
@@ -2640,7 +2431,7 @@ local ClosureBindings = {
                 AddConnection(search:GetPropertyChangedSignal("Text"), SearchOptions)
 
                 local function AddOptions(Options)
-                    for _, Option in ipairs(Options) do -- Use ipairs for ordered iteration
+                    for _, Option in ipairs(Options) do
                         local check = Create("ImageLabel", {
                             Image = "rbxassetid://15269180838",
                             ThemeProps = { ImageColor3 = "itemcheckmarkcolor", },
@@ -2658,14 +2449,14 @@ local ClosureBindings = {
                             Font = Enum.Font.Gotham,
                             Text = Option,
                             LineHeight = 0,
-                            ThemeProps = { TextColor3 = "itemTextOff" }, -- Default to off text color
+                            ThemeProps = { TextColor3 = "itemTextOff" },
                             TextSize = 14,
                             TextXAlignment = Enum.TextXAlignment.Left,
                             BackgroundTransparency = 1,
                             BorderSizePixel = 0,
                             Size = UDim2.new(1, 0, 1, 0),
                             Visible = true,
-                            Name = "TextLabel", -- Added name for easy access
+                            Name = "TextLabel",
                         }, {
                             Create("UIPadding", {
                                 PaddingBottom = UDim.new(0, 0),
@@ -2686,7 +2477,7 @@ local ClosureBindings = {
                             Size = UDim2.new(1, 0, 0, 30),
                             Visible = true,
                             Parent = dropcont,
-                            Name = Option, -- Use option name for easier lookup
+                            Name = Option,
                         }, {
                             Create("UICorner", {
                                 CornerRadius = UDim.new(0, 6),
@@ -2706,14 +2497,14 @@ local ClosureBindings = {
                                         table.insert(Dropdown.Value, Option)
                                     end
                                 end
-                                Dropdown:Set(Dropdown.Value) -- Pass the table for multi-select
+                                Dropdown:Set(Dropdown.Value)
                             else
                                 if Dropdown.Value == Option then
-                                    Dropdown:Set("") -- Deselect
+                                    Dropdown:Set("")
                                 else
                                     Dropdown:Set(Option)
                                 end
-                                toggleDropcontVisibility(false) -- Close dropdown for single select
+                                toggleDropcontVisibility(false)
                             end
                         end)
 
@@ -2730,16 +2521,16 @@ local ClosureBindings = {
                     end
                     Dropdown.Options = Options
                     AddOptions(Dropdown.Options)
-                    Dropdown:Set(Dropdown.Value, true) -- Re-apply current selection
+                    Dropdown:Set(Dropdown.Value, true)
                 end
 
                 function Dropdown:Set(Value, ignore)
-                    CurrentThemeProps = Tools.GetPropsCurrentTheme() -- Refresh theme props
+                    CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
                     local function updateButtonAppearance(button, isSelected)
                         local transparency = isSelected and 0 or 1
                         local textColor = isSelected and CurrentThemeProps.itemTextOn or CurrentThemeProps.itemTextOff
-                        local imageTransparency = isSelected and 0 or 1 -- Checkmark image transparency
+                        local imageTransparency = isSelected and 0 or 1
 
                         TweenService:Create(
                             button,
@@ -2840,7 +2631,7 @@ local ClosureBindings = {
                                 Position = UDim2.new(0.5, 0, 0.5, 0),
                                 Size = UDim2.new(0, 16, 0, 16),
                                 Visible = true,
-                                ThemeProps = { ImageColor3 = "valuetext" }, -- Close icon color
+                                ThemeProps = { ImageColor3 = "valuetext" },
                             }, {}),
                         })
 
@@ -2853,20 +2644,19 @@ local ClosureBindings = {
                             else
                                 Dropdown.Value = ""
                             end
-                            Dropdown:Set(Dropdown.Value) -- Recalculate and update UI
+                            Dropdown:Set(Dropdown.Value)
                         end
 
                         AddConnection(tagBtn.MouseButton1Click, removeTag)
                         AddConnection(closebtn.MouseButton1Click, removeTag)
                     end
 
-                    -- Handle the Value assignment properly for both single and multiple modes
                     if Config.Multiple then
                         if type(Value) == "table" then
                             Dropdown.Value = Value
                         elseif Value ~= "" then
                             if type(Dropdown.Value) ~= "table" then
-                                Dropdown.Value = {} -- Initialize if it was a single string previously
+                                Dropdown.Value = {}
                             end
                             local index = table.find(Dropdown.Value, Value)
                             if index then
@@ -2877,14 +2667,12 @@ local ClosureBindings = {
                                 end
                             end
                         else
-                            Dropdown.Value = {} -- Clear the selection
+                            Dropdown.Value = {}
                         end
                     else
-                        -- For single selection, just set the value directly
                         Dropdown.Value = Value
                     end
 
-                    -- Filter out invalid options from the current selection
                     if Config.Multiple then
                         local newSelectedValues = {}
                         for _, val in ipairs(Dropdown.Value) do
@@ -2908,7 +2696,7 @@ local ClosureBindings = {
                             updateButtonAppearance(button, false)
                         end
                         if not ignore then
-                            Config.Callback(Config.Multiple and {} or "") -- Call with empty table/string
+                            Config.Callback(Config.Multiple and {} or "")
                         end
                         return
                     end
@@ -2953,12 +2741,10 @@ local ClosureBindings = {
             Element.__index = Element
             Element.__type = "Paragraph"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Paragraph - Missing Title")
                 Config.Description = Config.Description or nil
 
-                -- Use the passed Container
                 local paragraph = require(Components.element)(Config.Title, Config.Description, Container)
 
                 return paragraph
@@ -2992,15 +2778,14 @@ local ClosureBindings = {
             Element.__index = Element
             Element.__type = "Slider"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Slider - Missing Title")
                 Config.Description = Config.Description or nil
 
-                Config.Min = Config.Min or 0 -- Default to 0 instead of 10
-                Config.Max = Config.Max or 100 -- Default to 100 instead of 20
+                Config.Min = Config.Min or 0
+                Config.Max = Config.Max or 100
                 Config.Increment = Config.Increment or 1
-                Config.Default = Config.Default or Config.Min -- Default to Min if not specified
+                Config.Default = Config.Default or Config.Min
                 Config.IgnoreFirst = Config.IgnoreFirst or false
 
                 local Slider = {
@@ -3016,13 +2801,12 @@ local ClosureBindings = {
                 local Dragging = false
                 local DraggingDot = false
 
-                -- Use the passed Container
                 local SliderFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
                 local ValueText = Create("TextLabel", {
                     Font = Enum.Font.Gotham,
                     RichText = true,
-                    Text = "", -- Set dynamically later
+                    Text = "",
                     ThemeProps = {
                         TextColor3 = "titlecolor",
                     },
@@ -3066,7 +2850,7 @@ local ClosureBindings = {
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
                     Position = UDim2.new(0, 0, 0.5, 0),
-                    Size = UDim2.new(0, 100, 1, 0), -- Initial size, will be updated
+                    Size = UDim2.new(0, 100, 1, 0),
                     Visible = true,
                     Parent = SliderBar,
                 }, {
@@ -3113,14 +2897,12 @@ local ClosureBindings = {
                     ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max)
 
                     local range = Config.Max - Config.Min
-                    local newPosition = (range == 0) and 0 or (self.Value - Config.Min) / range -- Handle zero range to avoid NaN
+                    local newPosition = (range == 0) and 0 or (self.Value - Config.Min) / range
 
                     if DraggingDot then
-                        -- Instant update when dragging dot
                         SliderDot.Position = UDim2.new(newPosition, 0, 0.5, 0)
                         SliderProgress.Size = UDim2.fromScale(newPosition, 1)
                     else
-                        -- Smooth tween when not dragging
                         TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                             Position = UDim2.new(newPosition, 0, 0.5, 0)
                         }):Play()
@@ -3196,7 +2978,6 @@ local ClosureBindings = {
             Element.__index = Element
             Element.__type = "Textbox"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config, "Textbox - Missing Config table")
                 assert(Config.Title, "Textbox - Missing Title")
@@ -3212,7 +2993,6 @@ local ClosureBindings = {
                     Type = "Textbox",
                 }
 
-                -- Use the passed Container
                 local TextboxFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
                 local textbox = Create("TextBox", {
@@ -3229,7 +3009,7 @@ local ClosureBindings = {
                     ThemeProps = {
                         TextColor3 = "titlecolor",
                         PlaceholderColor3 = "descriptioncolor",
-                        BackgroundColor3 = "maincolor", -- Use theme for background (if not transparent)
+                        BackgroundColor3 = "maincolor",
                     },
                     Parent = TextboxFrame.Frame,
                 }, {
@@ -3260,7 +3040,7 @@ local ClosureBindings = {
                     Config.Callback(value)
                 end
 
-                AddConnection(textbox.FocusLost, function(enterPressed) -- Added enterPressed parameter
+                AddConnection(textbox.FocusLost, function(enterPressed)
                     Textbox.Value = textbox.Text
                     Config.Callback(Textbox.Value)
                     if Config.TextDisappear then
@@ -3290,7 +3070,6 @@ local ClosureBindings = {
             Element.__index = Element
             Element.__type = "Toggle"
 
-            -- Added new parameters: Container, Type, ScrollFrame, Library
             function Element:New(Idx, Config, Container, Type, ScrollFrame, Library)
                 assert(Config.Title, "Toggle - Missing Title")
                 Config.Description = Config.Description or nil
@@ -3302,20 +3081,17 @@ local ClosureBindings = {
                     Callback = Config.Callback or function(Value) end,
                     IgnoreFirst = Config.IgnoreFirst,
                     Type = "Toggle",
-                    FirstUpdate = true, -- Added FirstUpdate flag
+                    FirstUpdate = true,
                 }
 
-                -- Use the passed Container and modified title for correct padding
                 local ToggleFrame = require(Components.element)(Config.Title, Config.Description, Container)
 
-                -- Apply UIPadding to the title label within ToggleFrame.topbox
                 local titleLabel = ToggleFrame.topbox:FindFirstChild("Title")
                 if titleLabel then
                     local padding = titleLabel:FindFirstChildOfClass("UIPadding")
                     if padding then
-                        padding.PaddingLeft = UDim.new(0, 24) -- Adjust padding to make space for the togglebox
+                        padding.PaddingLeft = UDim.new(0, 24)
                     else
-                        -- Create if it doesn't exist
                         Create("UIPadding", {
                             PaddingLeft = UDim.new(0, 24),
                             Parent = titleLabel,
@@ -3332,7 +3108,7 @@ local ClosureBindings = {
                     BorderSizePixel = 0,
                     Size = UDim2.new(0, 16, 0, 16),
                     Visible = true,
-                    Position = UDim2.new(0, 0, 0, 0), -- Position at top-left of topbox
+                    Position = UDim2.new(0, 0, 0, 0),
                     Parent = ToggleFrame.topbox,
                 }, {
                     Create("UICorner", {
@@ -3352,7 +3128,7 @@ local ClosureBindings = {
                     Create("ImageLabel", {
                         Image = "http://www.roblox.com/asset/?id=6031094667",
                         ThemeProps = {
-                            ImageColor3 = "togglecheckcolor" -- Use theme for checkmark color
+                            ImageColor3 = "togglecheckcolor"
                         },
                         AnchorPoint = Vector2.new(0.5, 0.5),
                         BackgroundTransparency = 1,
@@ -3372,7 +3148,7 @@ local ClosureBindings = {
                     local checkmark = box_frame:FindFirstChildOfClass("ImageLabel")
                     if checkmark then
                         TweenService:Create(checkmark, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {
-                            ImageTransparency = self.Value and 0 or 1 -- Make checkmark visible/invisible
+                            ImageTransparency = self.Value and 0 or 1
                         }):Play()
                     end
 
@@ -3407,9 +3183,6 @@ local ClosureBindings = {
 
             local tools = { Signals = {} }
 
-            -- WARNING: Using loadstring(game:HttpGet(...)) to load themes from an external URL
-            -- carries security risks. Ensure the URL is trusted. For production, consider
-            -- embedding themes as ModuleScripts in your project or loading from a trusted source.
             local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
             local currentTheme = themes.default
@@ -3442,7 +3215,6 @@ local ClosureBindings = {
 
             function tools.isMobile()
                 return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-                -- return true -- For testing mobile behavior
             end
 
             function tools.AddConnection(Signal, Function)
@@ -3451,17 +3223,17 @@ local ClosureBindings = {
                 return connection
             end
 
-            function tools.DisconnectAll() -- Renamed from Disconnect to DisconnectAll for clarity
+            function tools.DisconnectAll()
                 for key = #tools.Signals, 1, -1 do
                     local Connection = table.remove(tools.Signals, key)
                     Connection:Disconnect()
                 end
-                themedObjects = {} -- Clear themed objects when disconnecting all signals
+                themedObjects = {}
             end
 
             function tools.Create(Name, Properties, Children)
                 local Object = Instance.new(Name)
-                local themeProps = Properties.ThemeProps -- Extract ThemeProps before iterating others
+                local themeProps = Properties.ThemeProps
 
                 if themeProps then
                     for propName, themeKey in next, themeProps do
@@ -3470,7 +3242,7 @@ local ClosureBindings = {
                         end
                     end
                     table.insert(themedObjects, { object = Object, props = themeProps })
-                    Properties.ThemeProps = nil -- Remove from general properties after processing
+                    Properties.ThemeProps = nil
                 end
 
                 for i, v in next, Properties or {} do
@@ -3504,7 +3276,7 @@ local ClosureBindings = {
                 end)
 
                 AddConnection(scrollbar.MouseLeave, function()
-                    task.delay(delayTime, hideScrollbar) -- Use task.delay
+                    task.delay(delayTime, hideScrollbar)
                 end)
 
                 AddConnection(scrollbar.InputChanged, function(input)
@@ -3540,9 +3312,8 @@ local ClosureBindings = {
 
         end)()
     end
-} -- [RefId] = Closure
+}
 
--- Holds the actual DOM data
 local ObjectTree = {
     {
         1,
@@ -3671,7 +3442,6 @@ local ObjectTree = {
     }
 }
 
--- Line offsets for debugging (only included when minifyTables is false)
 local LineOffsets = {
     8,
     [3] = 454,
@@ -3691,19 +3461,15 @@ local LineOffsets = {
     [17] = 3138
 }
 
--- Misc AOT variable imports
 local WaxVersion = "0.4.1"
 local EnvName = "WaxRuntime"
 
--- ++++++++ RUNTIME IMPL BELOW ++++++++ --
-
--- Localizing certain libraries and built-ins for runtime efficiency
 local string, task, setmetatable, error, next, table, unpack, coroutine, script, type, require, pcall, tostring, tonumber, _VERSION =
     string, task, setmetatable, error, next, table, unpack, coroutine, script, type, require, pcall, tostring, tonumber, _VERSION
 
 local table_insert = table.insert
 local table_remove = table.remove
-local table_freeze = table.freeze or function(t) return t end -- lol
+local table_freeze = table.freeze or function(t) return t end
 
 local coroutine_wrap = coroutine.wrap
 
@@ -3711,8 +3477,6 @@ local string_sub = string.sub
 local string_match = string.match
 local string_gmatch = string.gmatch
 
--- The Lune runtime has its own `task` impl, but it must be imported by its builtin
--- module path, "@lune/task"
 if _VERSION and string_sub(_VERSION, 1, 4) == "Lune" then
     local RequireSuccess, LuneTaskLib = pcall(require, "@lune/task")
     if RequireSuccess and LuneTaskLib then
@@ -3722,12 +3486,10 @@ end
 
 local task_defer = task and task.defer
 
--- If we're not running on the Roblox engine, we won't have a `task` global
 local Defer = task_defer or function(f, ...)
     coroutine_wrap(f)(...)
 end
 
--- ClassName "IDs"
 local ClassNameIdBindings = {
     [1] = "Folder",
     [2] = "ModuleScript",
@@ -3736,21 +3498,17 @@ local ClassNameIdBindings = {
     [5] = "StringValue",
 }
 
-local RefBindings = {} -- [RefId] = RealObject
+local RefBindings = {}
 
 local ScriptClosures = {}
-local ScriptClosureRefIds = {} -- [ScriptClosure] = RefId
+local ScriptClosureRefIds = {}
 local StoredModuleValues = {}
 local ScriptsToRun = {}
 
--- wax.shared __index/__newindex
 local SharedEnvironment = {}
 
--- We're creating 'fake' instance refs soley for traversal of the DOM for require() compatibility
--- It's meant to be as lazy as possible
-local RefChildren = {} -- [Ref] = {ChildrenRef, ...}
+local RefChildren = {}
 
--- Implemented instance methods
 local InstanceMethods = {
     GetFullName = { {}, function(self)
         local Path = self.Name
@@ -3759,7 +3517,6 @@ local InstanceMethods = {
         while ObjectPointer do
             Path = ObjectPointer.Name .. "." .. Path
 
-            -- Move up the DOM (parent will be nil at the end, and this while loop will stop)
             ObjectPointer = ObjectPointer.Parent
         end
 
@@ -3801,8 +3558,6 @@ local InstanceMethods = {
 
         if recursive then
             for Child in next, Children do
-                -- Yeah, Roblox follows this behavior- instead of searching the entire base of a
-                -- ref first, the engine uses a direct recursive call
                 return Child:FindFirstChild(name, true)
             end
         end
@@ -3819,13 +3574,11 @@ local InstanceMethods = {
         end
     end},
 
-    -- Just to implement for traversal usage
     WaitForChild = { {"string", "number?"}, function(self, name)
         return self:FindFirstChild(name)
     end},
 }
 
--- "Proxies" to instance methods, with err checks etc
 local InstanceMethodProxies = {}
 for MethodName, MethodObject in next, InstanceMethods do
     local Types = MethodObject[1]
@@ -3862,15 +3615,10 @@ for MethodName, MethodObject in next, InstanceMethods do
 end
 
 local function CreateRef(className, name, parent)
-    -- `name` and `parent` can also be set later by the init script if they're absent
-
-    -- Extras
     local StringValue_Value
 
-    -- Will be set to RefChildren later aswell
     local Children = setmetatable({}, {__mode = "k"})
 
-    -- Err funcs
     local function InvalidMember(member)
         error(member .. " is not a valid (virtual) member of " .. className .. " \"" .. name .. "\"", 3)
     end
@@ -3884,16 +3632,15 @@ local function CreateRef(className, name, parent)
     RefMetatable.__metatable = false
 
     RefMetatable.__index = function(_, index)
-        if index == "ClassName" then -- First check "properties"
+        if index == "ClassName" then
             return className
         elseif index == "Name" then
             return name
         elseif index == "Parent" then
             return parent
         elseif className == "StringValue" and index == "Value" then
-            -- Supporting StringValue.Value for Rojo .txt file conv
             return StringValue_Value
-        else -- Lastly, check "methods"
+        else
             local InstanceMethod = InstanceMethodProxies[index]
 
             if InstanceMethod then
@@ -3901,45 +3648,37 @@ local function CreateRef(className, name, parent)
             end
         end
 
-        -- Next we'll look thru child refs
         for Child in next, Children do
             if Child.Name == index then
                 return Child
             end
         end
 
-        -- At this point, no member was found; this is the same err format as Roblox
         InvalidMember(index)
     end
 
     RefMetatable.__newindex = function(_, index, value)
-        -- __newindex is only for props fyi
         if index == "ClassName" then
             ReadOnlyProperty(index)
         elseif index == "Name" then
             name = value
         elseif index == "Parent" then
-            -- We'll just ignore the process if it's trying to set itself
             if value == Ref then
                 return
             end
 
             if parent ~= nil then
-                -- Remove this ref from the CURRENT parent
                 RefChildren[parent][Ref] = nil
             end
 
             parent = value
 
             if value ~= nil then
-                -- And NOW we're setting the new parent
                 RefChildren[value][Ref] = true
             end
         elseif className == "StringValue" and index == "Value" then
-            -- Supporting StringValue.Value for Rojo .txt file conv
             StringValue_Value = value
         else
-            -- Same err as __index when no member is found
             InvalidMember(index)
         end
     end
@@ -3959,18 +3698,17 @@ local function CreateRef(className, name, parent)
     return Ref
 end
 
--- Create real ref DOM from object tree
 local function CreateRefFromObject(object, parent)
     local RefId = object[1]
     local ClassNameId = object[2]
-    local Properties = object[3] -- Optional
-    local Children = object[4] -- Optional
+    local Properties = object[3]
+    local Children = object[4]
 
     local ClassName = ClassNameIdBindings[ClassNameId]
 
     local Name = Properties and table_remove(Properties, 1) or ClassName
 
-    local Ref = CreateRef(ClassName, Name, parent) -- 3rd arg may be nil if this is from root
+    local Ref = CreateRef(ClassName, Name, parent)
     RefBindings[RefId] = Ref
 
     if Properties then
@@ -3993,7 +3731,6 @@ for _, Object in next, ObjectTree do
     CreateRefFromObject(Object, RealObjectRoot)
 end
 
--- Now we'll set script closure refs and check if they should be ran as a BaseScript
 for RefId, Closure in next, ClosureBindings do
     local Ref = RefBindings[RefId]
 
@@ -4009,7 +3746,6 @@ end
 local function LoadScript(scriptRef)
     local ScriptClassName = scriptRef.ClassName
 
-    -- First we'll check for a cached module value (packed into a tbl)
     local StoredModuleValue = StoredModuleValues[scriptRef]
     if StoredModuleValue and ScriptClassName == "ModuleScript" then
         return unpack(StoredModuleValue)
@@ -4022,7 +3758,6 @@ local function LoadScript(scriptRef)
 
         local VirtualFullName = scriptRef:GetFullName()
 
-        -- Check for vanilla/Roblox format
         local OriginalErrorLine, BaseErrorMessage = string_match(originalErrorMessage, "[^:]+:(%d+): (.+)")
 
         if not OriginalErrorLine or not LineOffsets then
@@ -4042,7 +3777,6 @@ local function LoadScript(scriptRef)
         return VirtualFullName .. ":" .. RealErrorLine .. ": " .. BaseErrorMessage
     end
 
-    -- If it's a BaseScript, we'll just run it directly!
     if ScriptClassName == "LocalScript" or ScriptClassName == "Script" then
         local RunSuccess, ErrorMessage = pcall(Closure)
         if not RunSuccess then
@@ -4062,8 +3796,6 @@ local function LoadScript(scriptRef)
     end
 end
 
--- We'll assign the actual func from the top of this output for flattening user globals at runtime
--- Returns (in a tuple order): wax, script, require
 function ImportGlobals(refId)
     local ScriptRef = RefBindings[refId]
 
@@ -4078,7 +3810,6 @@ function ImportGlobals(refId)
         return unpack(PCallReturn)
     end
 
-    -- `wax.shared` index
     local WaxShared = table_freeze(setmetatable({}, {
         __index = SharedEnvironment,
         __newindex = function(_, index, value)
@@ -4093,13 +3824,11 @@ function ImportGlobals(refId)
     }))
 
     local Global_wax = table_freeze({
-        -- From AOT variable imports
         version = WaxVersion,
         envname = EnvName,
 
         shared = WaxShared,
 
-        -- "Real" globals instead of the env set ones
         script = script,
         require = require,
     })
@@ -4121,7 +3850,6 @@ function ImportGlobals(refId)
 
             return LoadScript(module)
         elseif ModuleArgType == "string" and string_sub(module, 1, 1) ~= "@" then
-            -- The control flow on this SUCKS
 
             if #module == 0 then
                 error("Attempted to call require with empty string", 2)
@@ -4142,7 +3870,6 @@ function ImportGlobals(refId)
                     RealIndex = "Parent"
                 end
 
-                -- Don't advance dir if it's just another "/" either
                 if RealIndex ~= "" then
                     local ResultRef = CurrentRefPointer:FindFirstChild(RealIndex)
                     if not ResultRef then
@@ -4159,7 +3886,6 @@ function ImportGlobals(refId)
                     end
                 end
 
-                -- For possible checks next cycle
                 PreviousPathMatch = PathMatch
             end
 
@@ -4175,7 +3901,6 @@ function ImportGlobals(refId)
         return RealCall(require, module, ...)
     end
 
-    -- Now, return flattened globals ready for direct runtime exec
     return Global_wax, Global_script, Global_require
 end
 
@@ -4183,5 +3908,4 @@ for _, ScriptRef in next, ScriptsToRun do
     Defer(LoadScript, ScriptRef)
 end
 
--- AoT adjustment: Load init module (MainModule behavior)
 return LoadScript(RealObjectRoot:GetChildren()[1])
