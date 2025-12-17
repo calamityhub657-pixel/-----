@@ -1,4 +1,5 @@
 
+
 -- ++++++++ WAX BUNDLED DATA BELOW ++++++++ --
 
 local ImportGlobals
@@ -870,10 +871,6 @@ local ClosureBindings = {
                         TextColor3 = "notificationtitlecolor",
                     },
                     Parent = topframe,
-                }, {
-                    Create("UIPadding", {
-                        PaddingLeft = UDim.new(0, 24),
-                    }),
                 })
 
                 local description = Create("TextLabel", {
@@ -941,7 +938,7 @@ local ClosureBindings = {
                     fadeOutTween.Completed:Connect(function()
                         main:Destroy()
                     end)
-                end)
+                })
 
             end
 
@@ -1056,7 +1053,7 @@ local ClosureBindings = {
                     TextWrapped = true,
                     TextXAlignment = Enum.TextXAlignment.Left,
                     AutomaticSize = Enum.AutomaticSize.Y,
-                    Text = "",
+
                     BackgroundTransparency = 1,
                     BorderColor3 = Color3.fromRGB(0, 0, 0),
                     BorderSizePixel = 0,
