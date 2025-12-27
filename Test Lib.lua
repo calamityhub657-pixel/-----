@@ -44,6 +44,42 @@ local AddScrollAnim = Tools.AddScrollAnim
 local isMobile = Tools.isMobile()
 local CurrentThemeProps = Tools.GetPropsCurrentTheme() -- Esta ainda pode ser chamada para propriedades fixas ou iniciais
 
+local function MakeDraggable(DragPoint, Main)
+	-- if isMobile then return end
+	local Dragging, DragInput, MousePos, FramePos = false
+	AddConnection(DragPoint.InputBegan, function(Input)
+		if
+			Input.UserInputType == Enum.UserInputType.MouseButton1
+			or Input.UserInputType == Enum.UserInputType.Touch
+		then
+			Dragging = true
+			MousePos = Input.Position
+			FramePos = Main.Position
+
+			AddConnection(Input.Changed, function()
+				if Input.UserInputState == Enum.UserInputState.End then
+					Dragging = false
+				end
+			end)
+		end
+	end)
+	AddConnection(DragPoint.InputChanged, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseMovement then
+			DragInput = Input
+		end
+	end)
+	AddConnection(UserInputService.InputChanged, function(Input)
+		if
+			(Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
+			and Dragging
+		then
+			local Delta = Input.Position - MousePos
+			Main.Position =
+				UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
+		end
+	end)
+end
+
 local Library = {
 	Window = nil,
 	Flags = {},
@@ -80,7 +116,7 @@ end
 -- MELHORIA: 6. Melhor Tratamento de Erros (Library:SafeCallback)
 function Library:SafeCallback(callback, ...)
     if not callback or type(callback) ~= "function" then
-        Logger:Log(Logger.Level.WARN, "Attempted to call a non-function callback. Type: %s", typeof(callback))
+        Logger:Log(Logger.Level.WARN, "Attempted to call a non-function callback.")
         return
     end
     
@@ -111,10 +147,6 @@ function Library:Cleanup()
     end
     table.clear(Tools.Signals) --
     Logger:Log(Logger.Level.DEBUG, "Cleared Tools.Signals.")
-
-    -- Limpar Tweens ativos
-    Tools.CancelAllTweens()
-    Logger:Log(Logger.Level.DEBUG, "Cancelled and cleared all active tweens.")
     
     -- Limpar flags
     table.clear(self.Flags)
@@ -177,11 +209,10 @@ function Library:Dialog(config)
 end
 
 function Library:Load(cfgs)
-	-- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
+	-- MELHORIA: 3. Validação de Inputs Mais Robusta
     cfgs = Validator.validateConfig(cfgs, 
         {}, -- Sem campos obrigatórios rígidos no nível da Load, mas pode ser adicionado
-        {Title = "Window", ToggleButton = "", BindGui = Enum.KeyCode.RightControl},
-        {Title = "string", ToggleButton = "string", BindGui = "EnumItem"} -- Exemplo de typeChecks
+        {Title = "Window", ToggleButton = "", BindGui = Enum.KeyCode.RightControl}
     )
 
 	if Library.Window then
@@ -239,11 +270,11 @@ function Library:Load(cfgs)
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
+		-- local fadeTo = isVisible and 1 or 0 -- Não usado para BackgroundTransparency aqui
 	
 		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 	
-		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-        Tools.AddTween(positionTween) -- MELHORIA: Rastrear tween
+		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition }) --
 		
 		canvas_group.Visible = true
 		togglebtn.Visible = false
@@ -255,7 +286,6 @@ function Library:Load(cfgs)
 				canvas_group.Visible = false
 				togglebtn.Visible = true
 			end
-            Tools.RemoveTween(positionTween) -- MELHORIA: Remover tween após conclusão
 		end)
 	end
 
@@ -459,7 +489,6 @@ function Library:Load(cfgs)
 		TabModule:SelectTab(Tab)
 	end
 
-	Logger:Log(Logger.Level.INFO, "Main Library 'Load' function completed for window: %s", cfgs.Title)
 	return Tabs
 end
 Logger:Log(Logger.Level.INFO, "Main Library initialized.")
@@ -482,8 +511,7 @@ function DialogModule:Create(config, parent)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     config = Validator.validateConfig(config,
         {"Title", "Content", "Buttons"},
-        {}, -- Não há opcionais com defaults aqui, mas pode ser expandido
-        {Title = "string", Content = "string", Buttons = "table"} -- Exemplo de typeChecks
+        {} -- Não há opcionais com defaults aqui, mas pode ser expandido
     )
 
     -- Remove existing dialog if any
@@ -621,8 +649,7 @@ function DialogModule:Create(config, parent)
         -- MELHORIA: 3. Validação de Inputs Mais Robusta para botões de diálogo
         buttonConfig = Validator.validateConfig(buttonConfig,
             {"Title"},
-            {Callback = function() end, Variant = (i == 1 and "Primary" or "Ghost")},
-            {Title = "string", Callback = "function", Variant = "string"} -- Exemplo de typeChecks
+            {Callback = function() end, Variant = (i == 1 and "Primary" or "Ghost")}
         )
 
         local wrappedCallback = function()
@@ -676,8 +703,9 @@ return function(title, desc, parent)
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
-		BorderSizePixel = 0,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
+		BorderSizePixel = 0,
+		Position = UDim2.new(0, 0, 0.519230783, 0),
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = true,
 		Parent = parent,
@@ -729,14 +757,13 @@ return function(title, desc, parent)
 		-- removido 'chevronIcon' pois causava erro se name.Parent era nil ao criá-lo.
 	})
 
-	local description
 	if desc ~= nil and desc ~= "" then -- Verificar se 'desc' realmente existe antes de criar description
-		description = Create("TextLabel", { -- Atribuir a 'description' local
+		local description = Create("TextLabel", {
 			Font = Enum.Font.Gotham,
 			RichText = true,
 			Name = "Description", -- Adicione o nome aqui para a pesquisa
 			ThemeProps = {
-				TextColor3 = "descriptioncolor",
+				TextColor3 = "elementdescription",
 				BackgroundColor3 = "maincolor",
 			},
 			TextSize = 14,
@@ -748,12 +775,12 @@ return function(title, desc, parent)
 			BorderColor3 = Color3.fromRGB(0, 0, 0),
 			BorderSizePixel = 0,
 			Position = UDim2.new(0, 0, 0, 23),
-			Size = UDim2.new(1, 0, 0, 0), -- Alterado de 0, 16 para 0, 0 para AutomaticSize funcionar
+			Size = UDim2.new(1, 0, 0, 16),
 			Visible = true,
 			Parent = Element.Frame, -- Changed parent to Element.Frame for proper layout, as 'topbox' might already have a UIListLayout affecting it.
 		}, {})
-		description.Text = desc
-		description.Visible = true -- Visibilidade baseada no conteúdo, já que é criado condicionalmente
+		description.Text = desc or ""
+		description.Visible = desc ~= nil and desc ~= "" -- Set visibility based on actual description content
 	end
 
 
@@ -769,11 +796,10 @@ return function(title, desc, parent)
 	function Element:SetTitle(Set)
 		name.Text = Set
 		name.Visible = Set ~= nil and Set ~= ""
-        Logger:Log(Logger.Level.DEBUG, "Element '%s' title set to: '%s'", (title or "Untitled"), (Set or "nil"))
 	end
 
 	function Element:SetDesc(Set)
-		if description then -- Apenas se description foi criado
+		if desc and description then -- Apenas se description foi criado
 			if Set == nil then
 				Set = ""
 			end
@@ -783,7 +809,6 @@ return function(title, desc, parent)
 				description.Visible = true
 			end
 			description.Text = Set
-            Logger:Log(Logger.Level.DEBUG, "Element '%s' description set to: '%s'", (title or "Untitled"), (Set or "nil"))
 		end
 	end
 
@@ -793,7 +818,7 @@ return function(title, desc, parent)
 
 	function Element:Destroy()
 		Element.Frame:Destroy()
-        Logger:Log(Logger.Level.DEBUG, "Destroyed element: '%s'", (title or "Untitled"))
+        Logger:Log(Logger.Level.DEBUG, "Destroyed element: %s", name.Text)
 	end
 
 	return Element
@@ -844,14 +869,14 @@ end
 function Notif:ShowNotification(titleText, descriptionText, duration)
     -- MELHORIA: Validação básica para evitar notificações vazias
     if not titleText or titleText == "" then
-        Logger:Log(Logger.Level.WARN, "Notification title is empty, skipping notification.")
+        Logger:Log(Logger.Level.WARN, "Notification title is empty, skipping.")
         return
     end
 
     local main = Create("CanvasGroup", {
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundColor3 = Color3.fromRGB(9, 9, 9),
-        BackgroundTransparency = 1, -- Transparência inicial para efeito de fade in
+        BackgroundTransparency = 1, -- Начальная прозрачность для эффекта появления
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.new(0, 300, 0, 0),
@@ -966,37 +991,27 @@ function Notif:ShowNotification(titleText, descriptionText, duration)
 
     -- Анимация плавного появления для всех элементов
     local fadeInTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    local fadeInTween = TweenService:Create(main, fadeInTweenInfo, {BackgroundTransparency = 0.4})
-    Tools.AddTween(fadeInTween) -- MELHORIA: Rastrear tween
+    local fadeInTween = TweenService:Create(main, fadeInTweenInfo, {BackgroundTransparency = 0.4}) --
     fadeInTween:Play()
 
-    local fadeInTweenTitle = TweenService:Create(title, fadeInTweenInfo, {TextTransparency = 0})
-    Tools.AddTween(fadeInTweenTitle) -- MELHORIA: Rastrear tween
+    local fadeInTweenTitle = TweenService:Create(title, fadeInTweenInfo, {TextTransparency = 0}) --
     fadeInTweenTitle:Play()
 
-    local fadeInTweenDescription = TweenService:Create(description, fadeInTweenInfo, {TextTransparency = 0})
-    Tools.AddTween(fadeInTweenDescription) -- MELHORIA: Rastrear tween
+    local fadeInTweenDescription = TweenService:Create(description, fadeInTweenInfo, {TextTransparency = 0}) --
     fadeInTweenDescription:Play()
 
-    local fadeInTweenUser = TweenService:Create(user, fadeInTweenInfo, {ImageTransparency = 0})
-    Tools.AddTween(fadeInTweenUser) -- MELHORIA: Rastrear tween
+    local fadeInTweenUser = TweenService:Create(user, fadeInTweenInfo, {ImageTransparency = 0}) --
     fadeInTweenUser:Play()
 
     -- Tween для прогресса
     local tweenInfo = TweenInfo.new(duration or 3, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut) -- Default duration if not provided
-    local tween = TweenService:Create(progressindicator, tweenInfo, {Size = UDim2.new(0, 0, 0, 2)})
-    Tools.AddTween(tween) -- MELHORIA: Rastrear tween
+    local tween = TweenService:Create(progressindicator, tweenInfo, {Size = UDim2.new(0, 0, 0, 2)}) --
     tween:Play()
 
     -- Удаление уведомления после завершения Tween
     tween.Completed:Connect(function()
         main:Destroy()
         Logger:Log(Logger.Level.DEBUG, "Notification '%s' destroyed after duration.", titleText)
-        Tools.RemoveTween(fadeInTween) -- MELHORIA: Remover tweens da lista de rastreamento
-        Tools.RemoveTween(fadeInTweenTitle)
-        Tools.RemoveTween(fadeInTweenDescription)
-        Tools.RemoveTween(fadeInTweenUser)
-        Tools.RemoveTween(tween)
     end)
 
     Logger:Log(Logger.Level.INFO, "Notification displayed: '%s'", titleText)
@@ -1141,7 +1156,7 @@ return function(cfgs, Parent)
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 0, 23),
-		Size = UDim2.new(1, 0, 0, 0), -- Alterado de 0, 16 para 0, 0 para AutomaticSize funcionar
+		Size = UDim2.new(1, 0, 0, 16),
 		Visible = true,
 		Parent = topbox,
 	}, {})
@@ -1191,21 +1206,15 @@ return function(cfgs, Parent)
 		local targetRotation = isExpanded and 90 or 180 -- 90 para aberto (baixo), 180 para fechado (esquerda)
 		
 		-- Animate chevron rotation
-		local chevronTween = TweenService:Create(chevronIcon, TweenInfo.new(0.3), {
+		TweenService:Create(chevronIcon, TweenInfo.new(0.3), {
 			Rotation = targetRotation
-		})
-        Tools.AddTween(chevronTween) -- MELHORIA: Rastrear tween
-		chevronTween:Play()
-        chevronTween.Completed:Connect(function() Tools.RemoveTween(chevronTween) end) -- MELHORIA: Remover tween após conclusão
+		}):Play() --
 		
 		-- Animate section container
 		local targetSize = isExpanded and UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18) or UDim2.new(1, 0, 0, 0)
-		local sizeTween = TweenService:Create(Section.SectionContainer, TweenInfo.new(0.3), {
+		TweenService:Create(Section.SectionContainer, TweenInfo.new(0.3), {
 			Size = targetSize
-		})
-        Tools.AddTween(sizeTween) -- MELHORIA: Rastrear tween
-		sizeTween:Play()
-        sizeTween.Completed:Connect(function() Tools.RemoveTween(sizeTween) end) -- MELHORIA: Remover tween após conclusão
+		}):Play() --
 	end
 	if cfgs.Locked == false then
 	AddConnection(topbox.MouseButton1Click, toggleSection)
@@ -1498,8 +1507,7 @@ function TabModule:New(Title, Parent)
         -- MELHORIA: 3. Validação de Inputs Mais Robusta para seção
         cfgs = Validator.validateConfig(cfgs,
             {}, -- Sem campos obrigatórios rígidos
-            {Title = nil, Description = nil, Defualt = false, Locked = false},
-            {Title = "string", Description = "string", Defualt = "boolean", Locked = "boolean"} -- Exemplo de typeChecks
+            {Title = nil, Description = nil, Defualt = false, Locked = false}
         )
 		local Section = { Type = "Section" }
 
@@ -1545,20 +1553,16 @@ function TabModule:SelectTab(Tab)
 
     for _, v in next, TabModule.Tabs do
         -- MELHORIA: 7. Sistema de Temas Melhorado (transições suaves)
-        local titleTween = TweenService:Create(
+        TweenService:Create(
             v.TabBtn.Title,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { TextColor3 = Tools.GetPropsCurrentTheme().offTextBtn } -- Usar Tools para a cor
-        )
-        Tools.AddTween(titleTween) titleTween:Play() titleTween.Completed:Connect(function() Tools.RemoveTween(titleTween) end)
-        
-        local lineTween = TweenService:Create(
+        ):Play() --
+        TweenService:Create(
             v.TabBtn.Line,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { BackgroundColor3 = Tools.GetPropsCurrentTheme().offBgLineBtn } -- Usar Tools para a cor
-        )
-        Tools.AddTween(lineTween) lineTween:Play() lineTween.Completed:Connect(function() Tools.RemoveTween(lineTween) end)
-        
+        ):Play() --
         v.Selected = false
         
         -- Hide search container for non-selected tabs
@@ -1568,19 +1572,16 @@ function TabModule:SelectTab(Tab)
     end
 
     local selectedTab = TabModule.Tabs[Tab]
-    local titleTween = TweenService:Create(
+    TweenService:Create(
         selectedTab.TabBtn.Title,
         TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
         { TextColor3 = Tools.GetPropsCurrentTheme().onTextBtn } -- Usar Tools para a cor
-    )
-    Tools.AddTween(titleTween) titleTween:Play() titleTween.Completed:Connect(function() Tools.RemoveTween(titleTween) end)
-
-    local lineTween = TweenService:Create(
+    ):Play() --
+    TweenService:Create(
         selectedTab.TabBtn.Line,
         TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
         { BackgroundColor3 = Tools.GetPropsCurrentTheme().onBgLineBtn } -- Usar Tools para a cor
-    )
-    Tools.AddTween(lineTween) lineTween:Play() lineTween.Completed:Connect(function() Tools.RemoveTween(lineTween) end)
+    ):Play() --
 
     task.spawn(function()
         for _, Container in pairs(TabModule.Containers) do
@@ -1650,8 +1651,7 @@ function Element:New(Idx, Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil, Hold = false, Callback = function() end, ChangeCallback = function() end, Default = Enum.KeyCode.Unknown},
-        {Title = "string", Description = "string", Hold = "boolean", Callback = "function", ChangeCallback = "function", Default = "EnumItem"} -- Exemplo de typeChecks
+        {Description = nil, Hold = false, Callback = function() end, ChangeCallback = function() end, Default = Enum.KeyCode.Unknown}
     )
 
 	local Bind = { Value = nil, Binding = false, Type = "Bind" }
@@ -1705,7 +1705,7 @@ function Element:New(Idx, Config)
 	function Bind:Set(Key)
 		Bind.Binding = false
 		Bind.Value = Key or Bind.Value
-		Bind.Value = typeof(Bind.Value) == "EnumItem" and Bind.Value.Name or Bind.Value -- Converter EnumItem para string
+		Bind.Value = Bind.Value.Name or Bind.Value
 		value.Text = tostring(Bind.Value)
         -- MELHORIA: 6. Melhor Tratamento de Erros com SafeCallback
 		wax.SafeCallback(Config.ChangeCallback, Bind.Value)
@@ -1832,20 +1832,16 @@ local function ApplyTweens(button, config, uiStroke)
 		end
 	end
 
-	local tween = TweenService:Create(button, tweenInfo, tweenGoals)
-    Tools.AddTween(tween) -- MELHORIA: Rastrear tween
+	local tween = TweenService:Create(button, tweenInfo, tweenGoals) --
 	tween:Play()
-    tween.Completed:Connect(function() Tools.RemoveTween(tween) end) -- MELHORIA: Remover tween após conclusão
 
 	if uiStroke and config.UIStroke then
 		local strokeTweenGoals = {}
 		for property, value in pairs(config.UIStroke) do
 			strokeTweenGoals[property] = value
 		end
-		local strokeTween = TweenService:Create(uiStroke, tweenInfo, strokeTweenGoals)
-        Tools.AddTween(strokeTween) -- MELHORIA: Rastrear tween
+		local strokeTween = TweenService:Create(uiStroke, tweenInfo, strokeTweenGoals) --
 		strokeTween:Play()
-        strokeTween.Completed:Connect(function() Tools.RemoveTween(strokeTween) end) -- MELHORIA: Remover tween após conclusão
 	end
 end
 
@@ -1905,26 +1901,26 @@ local function CreateButton(style, text, parent)
         UIStroke = config.UIStroke,
     }
 
-	AddConnection(button.MouseEnter, function()
+	button.MouseEnter:Connect(function()
 		if config.HoverConfig then
 			ApplyTweens(button, config.HoverConfig, uiStroke)
             Logger:Log(Logger.Level.DEBUG, "Button '%s' MouseEnter.", text)
 		end
 	end)
 
-	AddConnection(button.MouseLeave, function()
+	button.MouseLeave:Connect(function()
 		ApplyTweens(button, originalConfig, uiStroke)
         Logger:Log(Logger.Level.DEBUG, "Button '%s' MouseLeave.", text)
 	end)
 
-	AddConnection(button.MouseButton1Down, function()
+	button.MouseButton1Down:Connect(function()
 		if config.FocusConfig then
 			ApplyTweens(button, config.FocusConfig, uiStroke)
             Logger:Log(Logger.Level.DEBUG, "Button '%s' MouseButton1Down.", text)
 		end
 	end)
 
-	AddConnection(button.MouseButton1Up, function()
+	button.MouseButton1Up:Connect(function()
 		if config.HoverConfig then -- Retornar ao estado hover se ainda estiver sobre o botão
 			ApplyTweens(button, config.HoverConfig, uiStroke)
 		else -- Senão, retornar ao estado original
@@ -1940,8 +1936,7 @@ function Element:New(Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Variant = "Primary", Callback = function() end},
-        {Title = "string", Variant = "string", Callback = "function"} -- Exemplo de typeChecks
+        {Variant = "Primary", Callback = function() end}
     )
 
 	local Button = {}
@@ -1989,8 +1984,7 @@ function Element:New(Idx, Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title", "Default"},
-        {Description = nil, Transparency = 0, Callback = function(Color) end},
-        {Title = "string", Default = "Color3", Description = "string", Transparency = "number", Callback = "function"} -- Exemplo de typeChecks
+        {Description = nil, Transparency = 0, Callback = function(Color) end}
     )
 
     local Colorpicker = {
@@ -2006,7 +2000,7 @@ function Element:New(Idx, Config)
 
 	function Colorpicker:SetHSVFromRGB(Color)
         if typeof(Color) ~= "Color3" then
-            Logger:Log(Logger.Level.WARN, "Colorpicker '%s'.SetHSVFromRGB: Invalid color value provided. Expected Color3. Received: %s", Config.Title, typeof(Color))
+            Logger:Log(Logger.Level.WARN, "SetHSVFromRGB: Invalid color value provided. Expected Color3.")
             return
         end
 		local H, S, V = Color3.toHSV(Color)
@@ -2309,6 +2303,7 @@ function Element:New(Idx, Config)
 		Colorpicker.Sat = ColorX / color.AbsoluteSize.X
 		Colorpicker.Vib = 1 - (ColorY / color.AbsoluteSize.Y)
 		UpdateColorPicker()
+		-- inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex() -- Já é feito em UpdateColorPicker
 	end
 	
 	local function UpdateHuePickerPosition()
@@ -2317,6 +2312,7 @@ function Element:New(Idx, Config)
 		hue_selection.Position = UDim2.new(0.5, 0, HueY / hue.AbsoluteSize.Y, 0)
 		Colorpicker.Hue = HueY / hue.AbsoluteSize.Y
 		UpdateColorPicker()
+		-- inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex() -- Já é feito em UpdateColorPicker
 	end
 	
 	local ColorInput, HueInput = nil, nil
@@ -2380,19 +2376,17 @@ function Element:New(Idx, Config)
 	AddConnection(rainbowtoggle.MouseButton1Click, function()
 		RainbowColorPicker = not RainbowColorPicker
 		Colorpicker.RainbowMode = RainbowColorPicker -- Update the Colorpicker table
-		local toggleTween = TweenService:Create(
+		TweenService:Create(
 			togglebox,
 			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 			{ BackgroundTransparency = RainbowColorPicker and 0 or 1 }
-		)
-        Tools.AddTween(toggleTween) -- MELHORIA: Rastrear tween
-		toggleTween:Play()
-        toggleTween.Completed:Connect(function() Tools.RemoveTween(toggleTween) end) -- MELHORIA: Remover tween após conclusão
-
+		):Play() --
 		if RainbowColorPicker then
 			local function UpdateRainbowColor()
 				while RainbowColorPicker do
 					Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = RainbowColorValue, 1, 1
+					-- A posição de hue_selection é movida pela rotação global do rainbow color, então não é necessário o HueSelectionPosition
+					-- hue_selection.Position = UDim2.new(0.5, 0, 0, HueSelectionPosition) -- Isso era um erro, a posição deve ser baseada no Hue real
                     hue_selection.Position = UDim2.new(0.5, 0, Colorpicker.Hue, 0) -- Corrigido para refletir o Hue
 					UpdateColorPicker()
 					task.wait()
@@ -2407,7 +2401,7 @@ function Element:New(Idx, Config)
 
     function Colorpicker:Set(newColor)
         if typeof(newColor) ~= "Color3" then
-            Logger:Log(Logger.Level.WARN, "Colorpicker '%s'.Set: Invalid color value provided. Expected Color3. Received: %s", Config.Title, typeof(newColor))
+            Logger:Log(Logger.Level.WARN, "Colorpicker '%s'.Set: Invalid color value provided. Expected Color3.", Config.Title)
             return
         end
         
@@ -2451,7 +2445,6 @@ local table_find = table.find
 local table_insert = table.insert
 local table_remove = table.remove
 local math_huge = math.huge
-local table_concat = table.concat -- Adicionado para generateCacheKey ou debug
 
 local Element = {}
 Element.__index = Element
@@ -2461,12 +2454,11 @@ function Element:New(Idx, Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil, Options = {}, Default = "", IgnoreFirst = false, Multiple = false, MaxOptions = math_huge, PlaceHolder = "", Callback = function() end},
-        {Title = "string", Description = "string", Options = "table", Default = {"string", "table", "EnumItem"}, IgnoreFirst = "boolean", Multiple = "boolean", MaxOptions = "number", PlaceHolder = "string", Callback = "function"} -- Exemplo de typeChecks
+        {Description = nil, Options = {}, Default = "", IgnoreFirst = false, Multiple = false, MaxOptions = math_huge, PlaceHolder = "", Callback = function() end}
     )
 
 	local Dropdown = {
-		Value = Config.Multiple and (type(Config.Default) == "table" and Config.Default or {}) or Config.Default, -- Inicializar Dropdown.Value corretamente para multi-seleção
+		Value = Config.Multiple and {} or Config.Default, -- Inicializar Dropdown.Value corretamente para multi-seleção
 		Options = Config.Options,
 		Buttons = {},
 		Toggled = false,
@@ -2744,30 +2736,25 @@ function Element:New(Idx, Config)
             if not button or not button.ImageLabel or not button.TextLabel then return end -- MELHORIA: Proteção extra
 			local transparency = isSelected and 0 or 1
 			local textTransparency = isSelected and CurrentThemeProps.itemTextOff or CurrentThemeProps.itemTextOn
-			local tween = TweenService:Create(
+			TweenService:Create(
 				button,
 				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 				{ BackgroundTransparency = transparency }
-			)
-            Tools.AddTween(tween) tween:Play() tween.Completed:Connect(function() Tools.RemoveTween(tween) end)
-
-			local tweenImg = TweenService:Create(
+			):Play() --
+			TweenService:Create(
 				button.ImageLabel,
 				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 				{ ImageTransparency = transparency }
-			)
-            Tools.AddTween(tweenImg) tweenImg:Play() tweenImg.Completed:Connect(function() Tools.RemoveTween(tweenImg) end)
-
-			local tweenText = TweenService:Create(
+			):Play() --
+			TweenService:Create(
 				button.TextLabel,
 				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 				{ TextColor3 = textTransparency }
-			)
-            Tools.AddTween(tweenText) tweenText:Play() tweenText.Completed:Connect(function() Tools.RemoveTween(tweenText) end)
+			):Play() --
 		end
 
 		local function clearValueText()
-			for _, label in ipairs(holder:GetChildren()) do
+			for _, label in pairs(holder:GetChildren()) do
 				if label:IsA("TextButton") then
 					label:Destroy()
 				end
@@ -2867,7 +2854,7 @@ function Element:New(Idx, Config)
 				if Config.Multiple then
 					local index = table_find(Dropdown.Value, text)
 					if index then
-						table.remove(Dropdown.Value, index)
+						table_remove(Dropdown.Value, index)
 						Dropdown:Set(Dropdown.Value)
 						if #Dropdown.Value == 0 then
 							wax.SafeCallback(Config.Callback, {})
@@ -2908,7 +2895,7 @@ function Element:New(Idx, Config)
 		if Config.Multiple then
 			for i = #Dropdown.Value, 1, -1 do
 				if not table_find(Dropdown.Options, Dropdown.Value[i]) then
-					table.remove(Dropdown.Value, i)
+					table_remove(Dropdown.Value, i)
 				end
 			end
 			found = #Dropdown.Value > 0
@@ -2929,7 +2916,7 @@ function Element:New(Idx, Config)
 			for _, val in ipairs(Dropdown.Value) do
 				addValueText(val)
 			end
-            Logger:Log(Logger.Level.DEBUG, "Dropdown '%s': Multi-selection updated to: %s", Config.Title, table_concat(Dropdown.Value, ", "))
+            Logger:Log(Logger.Level.DEBUG, "Dropdown '%s': Multi-selection updated to: %s", Config.Title, table.concat(Dropdown.Value, ", "))
 		else
 			addValueText(Dropdown.Value)
             Logger:Log(Logger.Level.DEBUG, "Dropdown '%s': Single selection updated to: %s", Config.Title, Dropdown.Value)
@@ -2966,8 +2953,7 @@ function Element:New(Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil},
-        {Title = "string", Description = "string"} -- Exemplo de typeChecks
+        {Description = nil}
     )
 
 	local paragraph = require(Components.element)(Config.Title, Config.Description, self.Container)
@@ -3007,8 +2993,7 @@ function Element:New(Idx, Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil, Min = 10, Max = 20, Increment = 1, Default = 0, IgnoreFirst = false, Callback = function(Value) end},
-        {Title = "string", Description = "string", Min = "number", Max = "number", Increment = "number", Default = "number", IgnoreFirst = "boolean", Callback = "function"} -- Exemplo de typeChecks
+        {Description = nil, Min = 10, Max = 20, Increment = 1, Default = 0, IgnoreFirst = false, Callback = function(Value) end}
     )
 
     local Slider = {
@@ -3137,15 +3122,13 @@ function Element:New(Idx, Config)
             SliderProgress.Size = UDim2.fromScale(newPosition, 1)
         else
             -- Smooth tween when not dragging
-            local dotTween = TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(newPosition, 0, 0.5, 0)
-            })
-            Tools.AddTween(dotTween) dotTween:Play() dotTween.Completed:Connect(function() Tools.RemoveTween(dotTween) end)
+            }):Play() --
             
-            local progressTween = TweenService:Create(SliderProgress, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(SliderProgress, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.fromScale(newPosition, 1)
-            })
-            Tools.AddTween(progressTween) progressTween:Play() progressTween.Completed:Connect(function() Tools.RemoveTween(progressTween) end)
+            }):Play() --
         end
         
         if not ignore then
@@ -3225,8 +3208,7 @@ function Element:New(Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil, PlaceHolder = "", Default = "", TextDisappear = false, Callback = function() end},
-        {Title = "string", Description = "string", PlaceHolder = "string", Default = "string", TextDisappear = "boolean", Callback = "function"} -- Exemplo de typeChecks
+        {Description = nil, PlaceHolder = "", Default = "", TextDisappear = false, Callback = function() end}
     )
 
     local Textbox = {
@@ -3319,8 +3301,7 @@ function Element:New(Idx, Config)
     -- MELHORIA: 3. Validação de Inputs Mais Robusta com Validator
     Config = Validator.validateConfig(Config,
         {"Title"},
-        {Description = nil, Default = false, IgnoreFirst = false, Callback = function(Value) end},
-        {Title = "string", Description = "string", Default = "boolean", IgnoreFirst = "boolean", Callback = "function"} -- Exemplo de typeChecks
+        {Description = nil, Default = false, IgnoreFirst = false, Callback = function(Value) end}
     )
 
     local Toggle = {
@@ -3376,9 +3357,7 @@ function Element:New(Idx, Config)
 
     function Toggle:Set(Value, ignore)
         self.Value = Value
-        local toggleTween = TweenService:Create(box_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = self.Value and 0 or 1})
-        Tools.AddTween(toggleTween) toggleTween:Play() toggleTween.Completed:Connect(function() Tools.RemoveTween(toggleTween) end)
-
+        TweenService:Create(box_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = self.Value and 0 or 1}):Play() --
         if not ignore and (not self.IgnoreFirst or not self.FirstUpdate) then
             -- MELHORIA: 6. Melhor Tratamento de Erros com SafeCallback
             Library:SafeCallback(Toggle.Callback, self.Value)
@@ -3407,10 +3386,6 @@ end)() end,
 local string_lower = string.lower
 local string_find = string.find
 local string_gsub = string.gsub
-local table_concat = table.concat
-local table_sort = table.sort
-local table_insert = table.insert
-local table_remove = table.remove
 
 local Logger = require(script.Parent.logger) -- MELHORIA: Requerer Logger
 
@@ -3418,43 +3393,11 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
-local tools = { Signals = {}, themedObjects = {}, activeTweens = {} } -- MELHORIA: themedObjects e activeTweens como parte de tools
+local tools = { Signals = {}, themedObjects = {} } -- MELHORIA: themedObjects como parte de tools
 
 local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
 local currentTheme = themes.default
-
--- MELHORIA: Funções para gerenciar tweens
-function tools.AddTween(tween)
-    if tween and typeof(tween) == "Tween" then
-        table.insert(tools.activeTweens, tween)
-    else
-        Logger:Log(Logger.Level.WARN, "Attempted to add a non-Tween object to activeTweens.")
-    end
-end
-
-function tools.RemoveTween(tween)
-    if tween then
-        for i = #tools.activeTweens, 1, -1 do
-            if tools.activeTweens[i] == tween then
-                table.remove(tools.activeTweens, i)
-                return
-            end
-        end
-    end
-end
-
-function tools.CancelAllTweens()
-    Logger:Log(Logger.Level.DEBUG, "Cancelling %d active tweens.", #tools.activeTweens)
-    for i = #tools.activeTweens, 1, -1 do
-        local tween = tools.activeTweens[i]
-        if tween and tween.PlaybackState ~= Enum.PlaybackState.Completed and tween.PlaybackState ~= Enum.PlaybackState.Cancelled then
-            pcall(function() tween:Cancel() end)
-        end
-        tools.activeTweens[i] = nil -- Remover referência
-    end
-    table.clear(tools.activeTweens) -- Garantir que a tabela esteja vazia
-end
 
 function tools.SetTheme(themeName, duration) -- MELHORIA: 7. Sistema de Temas Melhorado (transição suave)
     local newTheme = themes[themeName]
@@ -3466,20 +3409,17 @@ function tools.SetTheme(themeName, duration) -- MELHORIA: 7. Sistema de Temas Me
             local obj = item.object
             local props = item.props
             for propName, themeKey in next, props do
-                if newTheme[themeKey] and obj and obj.Parent then -- Verificar se obj existe e está na hierarquia
+                if newTheme[themeKey] and obj then -- Verificar se obj existe
                     local currentPropertyValue = obj[propName]
                     local targetPropertyValue = newTheme[themeKey]
 
                     -- Apenas tween se o valor for tweenável e diferente
                     if typeof(currentPropertyValue) == typeof(targetPropertyValue) and currentPropertyValue ~= targetPropertyValue then
-                        local themeTween = TweenService:Create(
+                        TweenService:Create(
                             obj,
                             TweenInfo.new(duration, Enum.EasingStyle.Quad),
                             {[propName] = targetPropertyValue}
-                        )
-                        tools.AddTween(themeTween) -- MELHORIA: Rastrear tween de tema
-                        themeTween:Play()
-                        themeTween.Completed:Connect(function() tools.RemoveTween(themeTween) end) -- MELHORIA: Remover tween após conclusão
+                        ):Play() --
                     else
                         obj[propName] = targetPropertyValue -- Definir imediatamente se não for tweenável ou igual
                     end
@@ -3512,33 +3452,19 @@ function tools.AddConnection(Signal, Function)
 	return connection
 end
 
--- MELHORIA: 1. Cache Key no ComponentCache (Gerador de chave mais robusto)
+-- MELHORIA: 9. Memoização para Componentes (tools.CreateCached)
 local ComponentCache = setmetatable({}, {__mode = "v"}) -- Weak table para o cache
 
-local function generateCacheKey(Name, Properties)
-    local parts = {Name}
-    for k, v in pairs(Properties) do
-        -- Ignorar propriedades que mudam muito ou são referências complexas
-        if type(v) ~= "table" and k ~= "Parent" and k ~= "Position" and k ~= "Rotation" and k ~= "Size" then
-            table_insert(parts, k .. "=" .. tostring(v))
-        end
-    end
-    table_sort(parts) -- Garante ordem consistente
-    return table_concat(parts, "|")
-end
-
 function tools.CreateCached(Name, Properties, Children)
-    local cacheKey = generateCacheKey(Name, Properties)
-    
+    -- Cria uma chave simples. Para propriedades complexas (tabelas, CFrames, etc.), isso não funcionaria bem.
+    -- Para um cache mais robusto, Properties precisaria ser serializado de forma determinística.
+    local cacheKey = Name .. (Properties.Text or "") .. (Properties.Title or "") .. tostring(Properties.Size)
+
     if ComponentCache[cacheKey] then
+        -- Retorna uma cópia do componente cacheado para evitar modificações diretas no original.
+        -- Cuidado: .Clone() nem sempre é deep copy, e EventHandlers podem precisar ser reconectados.
         local clonedComponent = ComponentCache[cacheKey]:Clone()
         Logger:Log(Logger.Level.DEBUG, "Created cached component: %s (Cloned)", Name)
-        -- Resetar/aplicar propriedades dinâmicas que não foram parte da cache key
-        if Properties.Parent then clonedComponent.Parent = Properties.Parent end
-        if Properties.Position then clonedComponent.Position = Properties.Position end
-        if Properties.Rotation then clonedComponent.Rotation = Properties.Rotation end
-        if Properties.Size then clonedComponent.Size = Properties.Size end
-        -- Conexões de eventos precisarão ser tratadas pelo consumidor do componente se forem específicas da instância.
         return clonedComponent
     end
 
@@ -3573,11 +3499,8 @@ function tools.Create(Name, Properties, Children)
 end
 
 function tools.AddScrollAnim(scrollbar)
-	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 })
-    tools.AddTween(visibleTween) -- MELHORIA: Rastrear tween
-	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 1 })
-    tools.AddTween(invisibleTween) -- MELHORIA: Rastrear tween
-
+	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 }) --
+	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 1 }) --
 	local lastInteraction = tick()
 	local delayTime = 0.6
 
@@ -3665,8 +3588,7 @@ local Logger = require(script.Parent.logger) -- Requerer Logger
 
 local Validator = {}
 
--- MELHORIA: Validação de Tipos Mais Específica
-function Validator.validateConfig(config, requiredFields, optionalFieldsWithDefaults, typeChecks)
+function Validator.validateConfig(config, requiredFields, optionalFieldsWithDefaults)
     if typeof(config) ~= "table" then
         Logger:Log(Logger.Level.ERROR, "Config must be a table. Received: %s", typeof(config))
         error("Config must be a table.")
@@ -3687,40 +3609,6 @@ function Validator.validateConfig(config, requiredFields, optionalFieldsWithDefa
         if validatedConfig[field] == nil then
             validatedConfig[field] = defaultValue
             Logger:Log(Logger.Level.DEBUG, "Applied default value for '%s': %s", field, tostring(defaultValue))
-        end
-    end
-
-    -- Validar tipos específicos
-    if typeChecks then
-        for field, expectedType in pairs(typeChecks) do
-            local currentValue = validatedConfig[field]
-            if currentValue ~= nil then -- Apenas verificar se o valor existe
-                local actualType = typeof(currentValue)
-                local typeMatch = false
-
-                if type(expectedType) == "table" then -- Se for uma lista de tipos esperados (ex: {"string", "number"})
-                    for _, expType in ipairs(expectedType) do
-                        if actualType == expType then
-                            typeMatch = true
-                            break
-                        elseif expType == "EnumItem" and typeof(currentValue) == "EnumItem" then -- Caso especial para EnumItems
-                            typeMatch = true
-                            break
-                        end
-                    end
-                else -- Se for um único tipo esperado
-                    if actualType == expectedType then
-                        typeMatch = true
-                    elseif expectedType == "EnumItem" and typeof(currentValue) == "EnumItem" then -- Caso especial para EnumItems
-                        typeMatch = true
-                    end
-                end
-                
-                if not typeMatch then
-                    Logger:Log(Logger.Level.ERROR, "Field '%s' expects type '%s', but got '%s'. Value: %s", field, tostring(expectedType), actualType, tostring(currentValue))
-                    error(string.format("Configuration error: Field '%s' expects type '%s', but got '%s'.", field, tostring(expectedType), actualType))
-                end
-            end
         end
     end
     
@@ -3931,7 +3819,7 @@ local task_defer = task and task.defer
 -- If we're not running on the Roblox engine, we won't have a `task` global
 local Defer = task_defer or function(f, ...)
     coroutine_wrap(f)(...)
-D end
+end
 
 -- ClassName "IDs"
 local ClassNameIdBindings = {
