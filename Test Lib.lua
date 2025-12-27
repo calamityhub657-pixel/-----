@@ -159,7 +159,7 @@ function Library:Callback(Callback, ...)
 		end
 
 		errorInfo = errorInfo
-			.. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
+			.. `Possible Fix: Please check the function implementation for potential issues suchas invalid arguments or logic errors at the indicated line number.`
 		print(errorInfo)
 	end
 end
@@ -1018,6 +1018,9 @@ return function(cfgs, Parent)
 		Image = "rbxassetid://15269180996",
 		ImageRectOffset = Vector2.new(0, 257),
 		ImageRectSize = Vector2.new(256, 256),
+		BackgroundTransparency = 1, -- CORREÇÃO: Adicionado BackgroundTransparency
+		BorderSizePixel = 0,      -- CORREÇÃO: Adicionado BorderSizePixel
+		Size = UDim2.new(0, 24, 0, 24),
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
 		Rotation = 180, -- Rotação inicial: fechado (esquerda)
