@@ -30,7 +30,7 @@ local TweenService = getServiceRef("TweenService")
 local UserInputService = getServiceRef("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Lighting = game:GetService("Lighting")
+local Lighting = getServiceRef("Lighting")
 local RunService = getServiceRef("RunService")
 
 _G.Clickcolor = Color3.fromRGB(150, 0, 255)
@@ -73,7 +73,7 @@ local function makeDraggable(draggableElement, targetFrame)
                         inputChangedConnection = nil
                     end
                 end
-            end)
+            })
         end
     end))
 
@@ -90,7 +90,7 @@ local function makeDraggable(draggableElement, targetFrame)
 end
 
 local function createCorner(parent, radius)
-    assert(typeof(parent) == "GuiObject", "createCorner: parent must be a GuiObject.")
+    assert(parent and parent:IsA("GuiObject"), "createCorner: parent must be a GuiObject.") -- Melhoria na validação
     assert(typeof(radius) == "UDim" or radius == nil, "createCorner: radius must be a UDim or nil.")
 
     local corner = Instance.new("UICorner")
@@ -186,9 +186,9 @@ function Library:AddWindow(windowName, toggleKey)
         local statsFrame = CoreGui:FindFirstChild("StatsFrame")
         local closeFrame = CoreGui:FindFirstChild("CloseFrame")
         
-        if UserInputService.TouchEnabled then
+        if UserInputService.TouchEnabled then -- Detecta touch (mobile/tablet)
             if closeFrame then closeFrame.Enabled = true end
-        else
+        else -- Desktop (teclado e mouse)
             if statsFrame then statsFrame.Enabled = true end
         end
     end
