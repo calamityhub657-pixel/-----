@@ -1020,7 +1020,7 @@ return function(cfgs, Parent)
 		ImageRectSize = Vector2.new(256, 256),
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
-		Rotation = 90,
+		Rotation = 180, -- ALTERAÇÃO: Rotação inicial para "fechado" (esquerda)
 		Name = "chevron-down",
 		ZIndex = 99,
 		-- Parent = topbox,
@@ -1118,11 +1118,11 @@ return function(cfgs, Parent)
 
 	local isExpanded = cfgs.Defualt
 	if cfgs.Defualt == true then
-	chevronIcon.Rotation = 0
+	chevronIcon.Rotation = 90 -- ALTERAÇÃO: Se padrão for aberto, seta para "aberto" (baixo)
 	end
 	local function toggleSection()
 		isExpanded = not isExpanded
-		local targetRotation = isExpanded and 0 or 90
+		local targetRotation = isExpanded and 90 or 180 -- ALTERAÇÃO: 90 para aberto (baixo), 180 para fechado (esquerda)
 		
 		-- Animate chevron rotation
 		game:GetService("TweenService"):Create(chevronIcon, TweenInfo.new(0.3), {
