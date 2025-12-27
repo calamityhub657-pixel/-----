@@ -1,36 +1,24 @@
 
--- =========================================================================================
---                                   CALAMITY HUB LIBRARY
--- =========================================================================================
-
--- IDs Externos
 local EXTERNAL_IDS = loadstring(game:HttpGet("https://raw.githubusercontent.com/SaltyHB/Poggers/refs/heads/main/ids2"))()
 
--- Validação de EXTERNAL_IDS: Se o script remoto falhar ou retornar nil/tipo incorreto,
--- usa valores placeholder para evitar erros.
 if not EXTERNAL_IDS or type(EXTERNAL_IDS) ~= "table" then
     warn("Failed to load EXTERNAL_IDS from remote source. Using placeholder values.")
     EXTERNAL_IDS = {
-        "rbxassetid://0", -- Placeholder para a[1]
-        "rbxassetid://0", -- Placeholder para a[2]
-        "rbxassetid://0", -- Placeholder para a[3]
-        "rbxassetid://0", -- Placeholder (se houver mais IDs, adicione aqui)
         "rbxassetid://0",
         "rbxassetid://0",
-        "rbxassetid://0", -- Placeholder para a[7] (checkmark)
-        "rbxassetid://0", -- Placeholder para a[8] (dropdown arrow)
-        "rbxassetid://0", -- Placeholder para a[9] (color picker spectrum)
-        "rbxassetid://0"  -- Placeholder para a[10] (color picker selector)
-        -- Certifique-se de que o número de placeholders corresponda ao uso máximo no script,
-        -- ou ajuste dinamicamente EXTERNAL_IDS[#EXTERNAL_IDS]
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0",
+        "rbxassetid://0"
     }
 end
 
-
--- Roblox Services
 local function getServiceRef(serviceName)
     local service = game:GetService(serviceName)
-    -- Proteção contra cloneref inexistente: Nem todos os executores têm cloneref.
     if cloneref then
         return cloneref(service)
     end
@@ -43,33 +31,21 @@ local UserInputService = getServiceRef("UserInputService")
 local CoreGui = game:GetService("CoreGui")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Lighting = game:GetService("Lighting")
-local RunService = game:GetService("RunService")
+local RunService = getServiceRef("RunService")
 
--- Variáveis Globais (controladas para evitar poluição do _G)
-_G.Clickcolor = Color3.fromRGB(150, 0, 255) -- Cor roxa
+_G.Clickcolor = Color3.fromRGB(150, 0, 255)
 _G.BackgroundColor = Color3.fromRGB(15, 15, 15)
-_G.SeparateColor = Color3.fromRGB(150, 0, 255) -- Cor roxa
-_G.ButtonColor = Color3.fromRGB(30, 30, 30) -- Definido para consistência
+_G.SeparateColor = Color3.fromRGB(150, 0, 255)
+_G.ButtonColor = Color3.fromRGB(30, 30, 30)
 
--- Constantes de UI
 local UI_CORNER_RADIUS = UDim.new(0, 9)
 local BUTTON_CORNER_RADIUS = UDim.new(0, 4)
 local TEXTBOX_CORNER_RADIUS = UDim.new(0, 5)
 local TOGGLE_CORNER_RADIUS = UDim.new(0, 5)
-local SLIDER_CORNER_RADIUS = UDim.new(0, 100) -- Para o círculo do slider
+local SLIDER_CORNER_RADIUS = UDim.new(0, 100)
 
--- Tabela principal da biblioteca
 local Library = {}
 
--- =========================================================================================
---                                    FUNÇÕES AUXILIARES
--- =========================================================================================
-
---[[
-    Torna um Frame arrastável na tela.
-    @param draggableElement GuiObject - O elemento da UI que o usuário clica para arrastar.
-    @param targetFrame GuiObject - O Frame que será movido.
-]]
 local function makeDraggable(draggableElement, targetFrame)
     assert(typeof(draggableElement) == "GuiObject", "makeDraggable: draggableElement must be a GuiObject.")
     assert(typeof(targetFrame) == "GuiObject", "makeDraggable: targetFrame must be a GuiObject.")
@@ -77,7 +53,7 @@ local function makeDraggable(draggableElement, targetFrame)
     local isDragging = false
     local dragStartPosition
     local frameStartPosition
-    local inputChangedConnection = nil -- Conexão local para Input.Changed
+    local inputChangedConnection = nil
 
     trackConnection(draggableElement.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -85,12 +61,10 @@ local function makeDraggable(draggableElement, targetFrame)
             dragStartPosition = input.Position
             frameStartPosition = targetFrame.Position
             
-            -- Desconecta conexão anterior se existir para evitar duplicação ou vazamento
             if inputChangedConnection and inputChangedConnection.Connected then
                 pcall(function() inputChangedConnection:Disconnect() end)
             end
             
-            -- Rastreia a mudança de estado do input para saber quando parar de arrastar
             inputChangedConnection = input.Changed:Connect(function()
                 if input.UserInputState == Enum.UserInputState.End then
                     isDragging = false
@@ -115,12 +89,6 @@ local function makeDraggable(draggableElement, targetFrame)
     end))
 end
 
---[[
-    Cria um UICorner e o parenta a um GuiObject.
-    @param parent GuiObject - O GuiObject pai do UICorner.
-    @param radius UDim - O raio do canto (padrão: UI_CORNER_RADIUS).
-    @return UICorner - O objeto UICorner criado.
-]]
 local function createCorner(parent, radius)
     assert(typeof(parent) == "GuiObject", "createCorner: parent must be a GuiObject.")
     assert(typeof(radius) == "UDim" or radius == nil, "createCorner: radius must be a UDim or nil.")
@@ -131,37 +99,23 @@ local function createCorner(parent, radius)
     return corner
 end
 
--- Gerenciamento de Conexões (para evitar memory leaks)
 local activeConnections = {}
---[[
-    Rastreia uma conexão de evento para que possa ser desconectada posteriormente.
-    @param connection RBXScriptConnection - A conexão de evento a ser rastreada.
-]]
 local function trackConnection(connection)
-    if connection and connection.Connected then -- Garante que a conexão existe e está ativa antes de rastrear
+    if connection and connection.Connected then
         table.insert(activeConnections, connection)
     end
 end
 
---[[
-    Desconecta e remove todas as conexões de evento rastreadas.
-    Chamado ao destruir a janela da biblioteca.
-]]
 local function cleanupConnections()
-    for i = #activeConnections, 1, -1 do -- Itera de trás para frente para remoção segura
+    for i = #activeConnections, 1, -1 do
         local connection = activeConnections[i]
         if connection and connection.Connected then
-            pcall(function() connection:Disconnect() end) -- Protege contra erros ao desconectar
+            pcall(function() connection:Disconnect() end)
         end
-        activeConnections[i] = nil -- Remove a referência da tabela
+        activeConnections[i] = nil
     end
 end
 
---[[
-    Acessa um valor aninhado dentro da PlayerGui de forma segura.
-    @param path table<string> - Uma tabela de strings representando o caminho para o objeto.
-    @return Instance? - O objeto encontrado, ou nil se não for encontrado.
-]]
 local function getPlayerGuiValue(path)
     assert(type(path) == "table", "getPlayerGuiValue: path must be a table.")
 
@@ -173,40 +127,23 @@ local function getPlayerGuiValue(path)
     return current
 end
 
---[[
-    Esconde parte do nome de um jogador com asteriscos.
-    @param name string - O nome completo.
-    @param numVisible number - Quantos caracteres iniciais devem ser visíveis (padrão: 3).
-    @param numHidden number - Quantos caracteres devem ser escondidos (padrão: restante).
-    @return string - O nome formatado.
-]]
 local function hidePlayerNamePart(name, numVisible, numHidden)
     assert(type(name) == "string", "hidePlayerNamePart: name must be a string.")
     assert(type(numVisible) == "number" or numVisible == nil, "hidePlayerNamePart: numVisible must be a number or nil.")
     assert(type(numHidden) == "number" or numHidden == nil, "hidePlayerNamePart: numHidden must be a number or nil.")
 
     numVisible = numVisible or 3
-    numHidden = numHidden or math.max(0, string.len(name) - numVisible) -- Garante que numHidden não seja negativo
+    numHidden = numHidden or math.max(0, string.len(name) - numVisible)
     local visiblePart = string.sub(name, 1, numVisible)
     local hiddenPart = string.rep("*", numHidden)
     return visiblePart .. hiddenPart
 end
 
--- =========================================================================================
---                                    ESTRUTURA DA JANELA
--- =========================================================================================
-
---[[
-    Cria uma nova janela para a biblioteca.
-    @param windowName string - O título da janela.
-    @param toggleKey Enum.KeyCode - A tecla para abrir/fechar a janela (padrão: RightControl).
-    @return table - Tabela com métodos para adicionar abas e controlar a janela.
-]]
 function Library:AddWindow(windowName, toggleKey)
     assert(type(windowName) == "string", "AddWindow: windowName must be a string.")
     assert(typeof(toggleKey) == "EnumItem" and toggleKey:IsA("KeyCode") or toggleKey == nil, "AddWindow: toggleKey must be an Enum.KeyCode or nil.")
 
-    local currentWindow = {} -- Objeto que será retornado para a janela
+    local currentWindow = {}
     toggleKey = toggleKey or Enum.KeyCode.RightControl
     local isWindowOpen = true
     
@@ -227,23 +164,21 @@ function Library:AddWindow(windowName, toggleKey)
     mainFrame.BackgroundTransparency = 0
     createCorner(mainFrame)
 
-    -- Referência para o título do hub na janela principal
-    local hubNameLabel = Instance.new("TextLabel") -- Declarado aqui para ser acessível pelo SetWindowTitle
+    local hubNameLabel = Instance.new("TextLabel")
     hubNameLabel.Name = "NameHub"
-    hubNameLabel.Parent = mainFrame -- Temporariamente no mainFrame, será realocado
+    hubNameLabel.Parent = mainFrame
     hubNameLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
     hubNameLabel.BackgroundTransparency = 1.000
-    hubNameLabel.Position = UDim2.new(0.136, 0, 0.018, -33) -- Posição inicial, será ajustada
+    hubNameLabel.Position = UDim2.new(0.136, 0, 0.018, -33)
     hubNameLabel.Size = UDim2.new(0, 15, 0, 15)
     hubNameLabel.Font = Enum.Font.GothamSemibold
-    hubNameLabel.Text = windowName -- Usa o nome da janela
+    hubNameLabel.Text = windowName
     hubNameLabel.TextColor3 = _G.SeparateColor
     hubNameLabel.TextSize = 12.000
     hubNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Função para fechar a UI, agora local
     local function closeUI()
-        if not isWindowOpen then -- Se já estiver fechando, não faz nada
+        if not isWindowOpen then
             return
         end
         isWindowOpen = false
@@ -251,17 +186,15 @@ function Library:AddWindow(windowName, toggleKey)
         local statsFrame = CoreGui:FindFirstChild("StatsFrame")
         local closeFrame = CoreGui:FindFirstChild("CloseFrame")
         
-        -- Lógica corrigida para detectar se é touch, gamepad ou teclado
-        if UserInputService:IsGamepadEnabled() or UserInputService.TouchEnabled then
+        if UserInputService.TouchEnabled then
             if closeFrame then closeFrame.Enabled = true end
-        else -- Para teclado e mouse (Desktop)
+        else
             if statsFrame then statsFrame.Enabled = true end
         end
     end
 
-    -- Função para abrir a UI, agora local
     local function openUI()
-        if isWindowOpen then -- Se já estiver aberta, não faz nada
+        if isWindowOpen then
             return
         end
         isWindowOpen = true
@@ -272,7 +205,6 @@ function Library:AddWindow(windowName, toggleKey)
         if closeFrame then closeFrame.Enabled = false end
     end
 
-    -- Toggle da UI com a tecla
     trackConnection(UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
         if input.KeyCode == toggleKey and not gameProcessedEvent then
             if isWindowOpen then
@@ -283,7 +215,6 @@ function Library:AddWindow(windowName, toggleKey)
         end
     end))
 
-    -- Botão de fechar (X)
     local closeButton = Instance.new("ImageButton")
     closeButton.Parent = mainFrame
     closeButton.BackgroundColor3 = Color3.new(0.67451, 0.67451, 0.67451)
@@ -302,7 +233,6 @@ function Library:AddWindow(windowName, toggleKey)
     end))
     trackConnection(closeButton.MouseButton1Click:Connect(closeUI))
 
-    -- Barra superior da janela
     local topBar = Instance.new("Frame")
     topBar.Name = "Top"
     topBar.Parent = mainFrame
@@ -313,7 +243,6 @@ function Library:AddWindow(windowName, toggleKey)
     createCorner(topBar)
     makeDraggable(topBar, mainFrame)
 
-    -- Frame da página (onde as abas serão adicionadas)
     local pageFrame = Instance.new("Frame")
     pageFrame.Name = "Page"
     pageFrame.Parent = mainFrame
@@ -324,10 +253,8 @@ function Library:AddWindow(windowName, toggleKey)
     pageFrame.Size = UDim2.new(0, 125, 0, 312)
     createCorner(pageFrame)
 
-    -- Reparenta hubNameLabel para pageFrame (posição mais lógica)
     hubNameLabel.Parent = pageFrame
 
-    -- Separadores da UI
     local separatorVertical = Instance.new("Frame")
     separatorVertical.Parent = pageFrame
     separatorVertical.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
@@ -353,7 +280,6 @@ function Library:AddWindow(windowName, toggleKey)
     separatorHorizontalBottom.Position = UDim2.new(0, 0, 1.2, -101)
     separatorHorizontalBottom.Size = UDim2.new(0, 600, 0, 1)
 
-    -- Player Info
     local playerNameLabel = Instance.new("TextLabel")
     playerNameLabel.Name = "PlayerName"
     playerNameLabel.Parent = pageFrame
@@ -367,7 +293,6 @@ function Library:AddWindow(windowName, toggleKey)
     playerNameLabel.TextSize = 12.000
     playerNameLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Time/Stats Background
     local timeBackgroundFrame = Instance.new("Frame")
     timeBackgroundFrame.Name = "Backgroundtimeframe"
     timeBackgroundFrame.Parent = pageFrame
@@ -392,7 +317,6 @@ function Library:AddWindow(windowName, toggleKey)
     statsLabel.TextSize = 10.000
     statsLabel.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Avatar do jogador
     local avatarFrame = Instance.new("Frame")
     avatarFrame.Name = "PlayerAvatarFrame"
     avatarFrame.Parent = pageFrame
@@ -440,7 +364,6 @@ function Library:AddWindow(windowName, toggleKey)
     discordLink.TextSize = 12.000
     discordLink.TextXAlignment = Enum.TextXAlignment.Left
 
-    -- Scrolling Frame para as abas
     local pageScrollFrame = Instance.new("ScrollingFrame")
     pageScrollFrame.Name = "PageScrollFrame"
     pageScrollFrame.Parent = pageFrame
@@ -470,7 +393,6 @@ function Library:AddWindow(windowName, toggleKey)
     tabFolder.Name = "TabFolder"
     tabFolder.Parent = mainFrame
 
-    -- Update de tempo e stats (otimizado para 1 segundo)
     local lastStatsUpdate = 0
     local function updateStatsDisplay()
         local scriptUptimeSeconds = math.floor(workspace.DistributedGameTime + 0.5)
@@ -483,25 +405,14 @@ function Library:AddWindow(windowName, toggleKey)
     end
     trackConnection(RunService.Heartbeat:Connect(function()
         local currentTime = tick()
-        if currentTime - lastStatsUpdate >= 1 then -- Atualiza apenas a cada 1 segundo
+        if currentTime - lastStatsUpdate >= 1 then
             lastStatsUpdate = currentTime
             updateStatsDisplay()
         end
     end))
 
-    -- =========================================================================================
-    --                                    MÉTODOS DA ABA (TAB)
-    -- =========================================================================================
+    local tabMethods = {}
 
-    local tabMethods = {} -- Tabela de métodos para as abas individuais
-
-    --[[
-        Cria um novo botão dentro de uma aba.
-        @param buttonText string - O texto exibido no botão.
-        @param callback function - A função a ser chamada quando o botão é clicado (opcional).
-        @param iconId number? - O AssetId da imagem do ícone (opcional).
-        @return table - Um objeto com o método `SetButtonText(text)`.
-    ]]
     function tabMethods:AddButton(buttonText, callback, iconId)
         assert(type(buttonText) == "string", "AddButton: buttonText must be a string.")
         assert(type(callback) == "function" or callback == nil, "AddButton: callback must be a function or nil.")
@@ -509,7 +420,7 @@ function Library:AddWindow(windowName, toggleKey)
 
         local button = Instance.new("TextButton")
         button.Name = "Button"
-        button.Parent = self.scrollFrame -- self.scrollFrame é o ScrollTab da aba
+        button.Parent = self.scrollFrame
         button.BackgroundColor3 = _G.ButtonColor
         button.BackgroundTransparency = 0
         button.BorderSizePixel = 0
@@ -520,7 +431,7 @@ function Library:AddWindow(windowName, toggleKey)
         button.TextColor3 = Color3.fromRGB(225, 225, 225)
         button.TextSize = 11.000
         button.TextWrapped = true
-        button.TextXAlignment = Enum.TextXAlignment.Left -- Padrão, ajustado se tiver ícone
+        button.TextXAlignment = Enum.TextXAlignment.Left
         createCorner(button, BUTTON_CORNER_RADIUS)
 
         if iconId then
@@ -531,7 +442,7 @@ function Library:AddWindow(windowName, toggleKey)
             icon.BackgroundTransparency = 1
             icon.Image = "rbxassetid://" .. tostring(iconId)
             
-            button.TextXAlignment = Enum.TextXAlignment.Center -- Ajusta o texto para não sobrepor o ícone
+            button.TextXAlignment = Enum.TextXAlignment.Center
         end
 
         trackConnection(button.MouseEnter:Connect(function()
@@ -542,7 +453,7 @@ function Library:AddWindow(windowName, toggleKey)
         end))
         trackConnection(button.MouseButton1Click:Connect(function()
             if type(callback) == "function" then
-                pcall(callback) -- Protege o callback de erros
+                pcall(callback)
             end
             TweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextSize = 7}):Play()
             TweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {TextSize = 11}):Play()
@@ -556,13 +467,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um novo toggle (liga/desliga) dentro de uma aba.
-        @param toggleText string - O texto exibido ao lado do toggle.
-        @param initialValue boolean - O estado inicial do toggle (true para ligado, false para desligado).
-        @param callback function - A função a ser chamada quando o toggle muda de estado. Recebe o novo estado como argumento.
-        @return table - Um objeto com métodos: SetToggleText(text), GetState(), SetState(state).
-    ]]
     function tabMethods:AddToggle(toggleText, initialValue, callback)
         assert(type(toggleText) == "string", "AddToggle: toggleText must be a string.")
         assert(type(initialValue) == "boolean" or initialValue == nil, "AddToggle: initialValue must be a boolean or nil.")
@@ -577,7 +481,7 @@ function Library:AddWindow(windowName, toggleKey)
         toggleContainer.AutoButtonColor = false
         toggleContainer.Size = UDim2.new(0, 455, 0, 30)
         toggleContainer.Font = Enum.Font.SourceSans
-        toggleContainer.Text = "" -- O texto vai para o ToggleLabel
+        toggleContainer.Text = ""
         toggleContainer.TextColor3 = Color3.fromRGB(0, 0, 0)
         toggleContainer.TextSize = 14.000
         createCorner(toggleContainer, BUTTON_CORNER_RADIUS)
@@ -616,7 +520,7 @@ function Library:AddWindow(windowName, toggleKey)
         local toggleCheckmark = Instance.new("ImageLabel")
         toggleCheckmark.Name = "ToggleImage2"
         toggleCheckmark.Parent = toggleImageFrame
-        toggleCheckmark.Image = EXTERNAL_IDS[7] -- ID da imagem do checkmark
+        toggleCheckmark.Image = EXTERNAL_IDS[7]
         toggleCheckmark.AnchorPoint = Vector2.new(0.5, 0.5)
         toggleCheckmark.BackgroundColor3 = Color3.fromRGB(225, 225, 225)
         toggleCheckmark.Position = UDim2.new(0, 10, 0, 10)
@@ -635,17 +539,17 @@ function Library:AddWindow(windowName, toggleKey)
 
         local isOn = initialValue or false
         local function updateToggleVisual()
-            toggleCheckmark.ImageColor3 = _G.SeparateColor -- Mantém a cor da imagem consistente
+            toggleCheckmark.ImageColor3 = _G.SeparateColor
             if isOn then
                 toggleCheckmark.Visible = true
                 TweenService:Create(toggleCheckmark, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 26, 0, 26)}):Play()
             else
                 TweenService:Create(toggleCheckmark, TweenInfo.new(0.1, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0)}):Play()
-                task.wait(0.1) -- Pequeno delay para a animação
+                task.wait(0.1)
                 toggleCheckmark.Visible = false
             end
             if type(callback) == "function" then
-                pcall(callback, isOn) -- Passa o novo estado
+                pcall(callback, isOn)
             end
         end
 
@@ -654,7 +558,6 @@ function Library:AddWindow(windowName, toggleKey)
             updateToggleVisual()
         end))
 
-        -- Define o estado inicial
         updateToggleVisual()
 
         return {
@@ -670,13 +573,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria uma nova caixa de texto para entrada de dados.
-        @param titleText string - O título exibido ao lado da caixa de texto.
-        @param defaultValue string - O valor padrão da caixa de texto.
-        @param callback function - A função a ser chamada quando o foco da caixa de texto é perdido e o texto é alterado. Recebe o novo texto como argumento.
-        @return table - Um objeto com métodos: SetTextboxText(text), GetTextboxText().
-    ]]
     function tabMethods:AddTextbox(titleText, defaultValue, callback)
         assert(type(titleText) == "string", "AddTextbox: titleText must be a string.")
         assert(type(defaultValue) == "string" or type(defaultValue) == "number", "AddTextbox: defaultValue must be a string or number.")
@@ -755,14 +651,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um dropdown de múltiplas seleções.
-        @param titleText string - O título exibido no dropdown.
-        @param initialValues table - Uma tabela de valores selecionados inicialmente.
-        @param optionsTable table - Uma tabela de todas as opções disponíveis para seleção.
-        @param callback function - A função a ser chamada quando as seleções mudam. Recebe a tabela de seleções atuais como argumento.
-        @return table - Um objeto com métodos: GetSelectedOptions(), SetOptions(newOptions).
-    ]]
     function tabMethods:AddMultiDropdown(titleText, initialValues, optionsTable, callback)
         assert(type(titleText) == "string", "AddMultiDropdown: titleText must be a string.")
         assert(type(initialValues) == "table" or initialValues == nil, "AddMultiDropdown: initialValues must be a table or nil.")
@@ -775,7 +663,7 @@ function Library:AddWindow(windowName, toggleKey)
         dropdownContainer.Active = true
         dropdownContainer.BackgroundColor3 = _G.ButtonColor
         dropdownContainer.ClipsDescendants = true
-        dropdownContainer.Size = UDim2.new(0, 455, 0, 30) -- Altura inicial
+        dropdownContainer.Size = UDim2.new(0, 455, 0, 30)
         createCorner(dropdownContainer, BUTTON_CORNER_RADIUS)
 
         local dropdownButton = Instance.new("TextButton")
@@ -785,7 +673,7 @@ function Library:AddWindow(windowName, toggleKey)
         dropdownButton.BackgroundTransparency = 1.000
         dropdownButton.Size = UDim2.new(0, 455, 0, 30)
         dropdownButton.Font = Enum.Font.SourceSans
-        dropdownButton.Text = "" -- Texto será no título
+        dropdownButton.Text = ""
         dropdownButton.TextColor3 = Color3.fromRGB(0, 0, 0)
         dropdownButton.TextSize = 14.000
 
@@ -816,7 +704,7 @@ function Library:AddWindow(windowName, toggleKey)
         searchBox.Name = "SearchBox"
         searchBox.Parent = dropdownContainer
         searchBox.Size = UDim2.new(0.2, 0, 0, 20)
-        searchBox.Position = UDim2.new(0, 330, 0.1, -12) -- Posição inicial escondida/no topo
+        searchBox.Position = UDim2.new(0, 330, 0.1, -12)
         searchBox.PlaceholderText = "Search..."
         searchBox.Font = Enum.Font.Gotham
         searchBox.TextSize = 11
@@ -840,7 +728,7 @@ function Library:AddWindow(windowName, toggleKey)
         dropdownScroll.BackgroundTransparency = 1.000
         dropdownScroll.BorderSizePixel = 0
         dropdownScroll.Position = UDim2.new(0, 0, 0, 30)
-        dropdownScroll.Size = UDim2.new(0, 455, 0, 135) -- Altura fixa para scroll
+        dropdownScroll.Size = UDim2.new(0, 455, 0, 135)
         dropdownScroll.CanvasSize = UDim2.new(0, 0, 0, 2)
         dropdownScroll.ScrollBarThickness = 4
         dropdownScroll.Visible = false
@@ -865,13 +753,13 @@ function Library:AddWindow(windowName, toggleKey)
         end
 
         local isOpen = false
-        local optionButtons = {} -- Para referência dos botões de opção
+        local optionButtons = {}
 
         local function updateTitleText()
             local display = ""
             if #selectedOptions > 0 then
                 display = table.concat(selectedOptions, ", ")
-                if #display > 20 then -- Limita o tamanho do texto no título
+                if #display > 20 then
                     display = string.sub(display, 1, 17) .. "..."
                 end
             else
@@ -891,7 +779,7 @@ function Library:AddWindow(windowName, toggleKey)
             optionButton.TextColor3 = Color3.fromRGB(225, 225, 225)
             optionButton.TextSize = 11.000
             optionButton.Text = tostring(optionValue)
-            optionButtons[optionValue] = optionButton -- Armazena para referência
+            optionButtons[optionValue] = optionButton
 
             local isSelected = table.find(selectedOptions, optionValue) ~= nil
             if isSelected then
@@ -914,7 +802,7 @@ function Library:AddWindow(windowName, toggleKey)
             end))
 
             trackConnection(optionButton.MouseEnter:Connect(function()
-                if table.find(selectedOptions, optionValue) == nil then -- Não muda se já estiver selecionado
+                if table.find(selectedOptions, optionValue) == nil then
                     TweenService:Create(optionButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = _G.Clickcolor}):Play()
                 end
             end))
@@ -940,8 +828,8 @@ function Library:AddWindow(windowName, toggleKey)
             TweenService:Create(searchBox, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Position = searchBoxTargetPos}):Play()
 
             if not isOpen then
-                searchBox.Text = "" -- Reseta a caixa de pesquisa ao fechar
-                for _, btn in pairs(optionButtons) do btn.Visible = true end -- Mostra todas as opções
+                searchBox.Text = ""
+                for _, btn in pairs(optionButtons) do btn.Visible = true end
                 dropdownScroll.CanvasSize = UDim2.new(0, 0, 0, dropdownListLayout.AbsoluteContentSize.Y + 10)
             end
         end))
@@ -963,24 +851,15 @@ function Library:AddWindow(windowName, toggleKey)
             GetSelectedOptions = function() return selectedOptions end,
             SetOptions = function(newOptions)
                 assert(type(newOptions) == "table", "SetOptions: newOptions must be a table.")
-                -- Limpa as opções atuais
                 for _, btn in pairs(optionButtons) do btn:Destroy() end
                 optionButtons = {}
                 selectedOptions = {}
-                -- Adiciona novas opções
                 for _, option in ipairs(newOptions) do addOption(option) end
                 updateTitleText()
             end
         }
     end;
 
-    --[[
-        Cria um color picker dropdown para seleção de cores.
-        @param titleText string - O título exibido no color picker.
-        @param initialColor Color3 - A cor inicial do color picker.
-        @param callback function - A função a ser chamada quando a cor é alterada. Recebe a nova cor (Color3) como argumento.
-        @return table - Um objeto com métodos: GetColor(), SetColor(color).
-    ]]
     function tabMethods:AddColorPickerDropdown(titleText, initialColor, callback)
         assert(type(titleText) == "string", "AddColorPickerDropdown: titleText must be a string.")
         assert(typeof(initialColor) == "Color3", "AddColorPickerDropdown: initialColor must be a Color3.")
@@ -1028,7 +907,6 @@ function Library:AddWindow(windowName, toggleKey)
         dropdownArrow.Size = UDim2.new(0, 20, 0, 20)
         dropdownArrow.Image = EXTERNAL_IDS[8]
 
-        -- Componentes do Color Picker
         local spectrumImage = Instance.new("ImageLabel")
         spectrumImage.Name = "Spectrum"
         spectrumImage.Parent = colorPickerContainer
@@ -1038,7 +916,7 @@ function Library:AddWindow(windowName, toggleKey)
         spectrumImage.BackgroundColor3 = Color3.new(1, 1, 1)
         spectrumImage.ClipsDescendants = true
         spectrumImage.Visible = false
-        createCorner(spectrumImage, UDim.new(0, 0)) -- Sem corner radius para o espectro
+        createCorner(spectrumImage, UDim.new(0, 0))
 
         local spectrumSelector = Instance.new("ImageLabel")
         spectrumSelector.Size = UDim2.new(0, 10, 0, 10)
@@ -1150,8 +1028,8 @@ function Library:AddWindow(windowName, toggleKey)
 
             local hue = x / spectrumImage.AbsoluteSize.X
             local saturation = 1 - (y / spectrumImage.AbsoluteSize.Y)
-            local _, _, currentValue = currentColor:ToHSV() -- Extrai o valor V atual
-            currentColor = Color3.fromHSV(hue, saturation, currentValue) -- Mantém V
+            local _, _, currentValue = currentColor:ToHSV()
+            currentColor = Color3.fromHSV(hue, saturation, currentValue)
             updateColorVisuals()
         end
 
@@ -1177,8 +1055,8 @@ function Library:AddWindow(windowName, toggleKey)
             hueSelector.Position = UDim2.new(0, 0, 0, y - 5)
 
             local value = 1 - (y / hueBar.AbsoluteSize.Y)
-            local currentHue, currentSat, _ = currentColor:ToHSV() -- Extrai H e S atuais
-            currentColor = Color3.fromHSV(currentHue, currentSat, value) -- Atualiza apenas V
+            local currentHue, currentSat, _ = currentColor:ToHSV()
+            currentColor = Color3.fromHSV(currentHue, currentSat, value)
             updateColorVisuals()
         end
 
@@ -1240,7 +1118,7 @@ function Library:AddWindow(windowName, toggleKey)
                 updateColorVisuals()
             end
         end))
-        updateColorVisuals() -- Define o texto inicial
+        updateColorVisuals()
 
         return {
             GetColor = function() return currentColor end,
@@ -1251,14 +1129,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um dropdown de seleção única.
-        @param titleText string - O título exibido no dropdown.
-        @param initialValue any - O valor selecionado inicialmente.
-        @param optionsTable table - Uma tabela de todas as opções disponíveis para seleção.
-        @param callback function - A função a ser chamada quando a seleção muda. Recebe o valor selecionado como argumento.
-        @return table - Um objeto com métodos: GetSelectedValue(), SetOptions(newOptions), SetSelectedValue(value).
-    ]]
     function tabMethods:AddDropdown(titleText, initialValue, optionsTable, callback)
         assert(type(titleText) == "string", "AddDropdown: titleText must be a string.")
         assert(type(optionsTable) == "table", "AddDropdown: optionsTable must be a table.")
@@ -1342,7 +1212,7 @@ function Library:AddWindow(windowName, toggleKey)
         dropdownScroll.ScrollingDirection = Enum.ScrollingDirection.Y
         dropdownScroll.ScrollBarImageColor3 = Color3.fromRGB(100, 100, 100)
         dropdownScroll.VerticalScrollBarInset = Enum.ScrollBarInset.ScrollBar
-        dropdownScroll.Visible = false -- Inicia fechado
+        dropdownScroll.Visible = false
 
         local dropdownListLayout = Instance.new("UIListLayout")
         dropdownListLayout.Name = "DropdownList"
@@ -1389,7 +1259,6 @@ function Library:AddWindow(windowName, toggleKey)
                 end
             end))
             trackConnection(optionButton.MouseButton1Click:Connect(function()
-                -- Resetar a cor do item anteriormente selecionado
                 if optionButtons[tostring(currentSelectedValue)] then
                     TweenService:Create(optionButtons[tostring(currentSelectedValue)], TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(225, 225, 225)}):Play()
                 end
@@ -1399,17 +1268,15 @@ function Library:AddWindow(windowName, toggleKey)
                 if type(callback) == "function" then
                     pcall(callback, currentSelectedValue)
                 end
-                -- Colore o item recém-selecionado
                 TweenService:Create(optionButton, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = _G.Clickcolor}):Play()
 
-                -- Fecha o dropdown
                 isOpen = false
                 dropdownScroll.Visible = false
                 searchBox.Text = ""
                 searchBox.Visible = false
                 TweenService:Create(dropdownContainer, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 455, 0, 30)}):Play()
                 TweenService:Create(dropdownArrow, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Rotation = 0}):Play()
-                for _, btn in pairs(optionButtons) do btn.Visible = true end -- Mostra todas as opções para a próxima abertura
+                for _, btn in pairs(optionButtons) do btn.Visible = true end
             end))
         end
 
@@ -1429,8 +1296,8 @@ function Library:AddWindow(windowName, toggleKey)
             if isOpen then
                 dropdownScroll.CanvasSize = UDim2.new(0, 0, 0, dropdownListLayout.AbsoluteContentSize.Y + 10)
             else
-                searchBox.Text = "" -- Reseta a caixa de pesquisa
-                for _, btn in pairs(optionButtons) do btn.Visible = true end -- Mostra todas as opções
+                searchBox.Text = ""
+                for _, btn in pairs(optionButtons) do btn.Visible = true end
             end
         end))
 
@@ -1451,21 +1318,17 @@ function Library:AddWindow(windowName, toggleKey)
             GetSelectedValue = function() return currentSelectedValue end,
             SetOptions = function(newOptionsTable)
                 assert(type(newOptionsTable) == "table", "SetOptions: newOptionsTable must be a table.")
-                -- Limpa as opções atuais
                 for _, btn in pairs(optionButtons) do btn:Destroy() end
                 optionButtons = {}
-                -- Adiciona novas opções
                 for _, option in ipairs(newOptionsTable) do addOptionButton(option) end
                 dropdownScroll.CanvasSize = UDim2.new(0, 0, 0, dropdownListLayout.AbsoluteContentSize.Y + 10)
             end,
             SetSelectedValue = function(value)
-                -- Reseta a cor do item anteriormente selecionado
                 if optionButtons[tostring(currentSelectedValue)] then
                     TweenService:Create(optionButtons[tostring(currentSelectedValue)], TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(225, 225, 225)}):Play()
                 end
                 currentSelectedValue = value
                 updateTitleLabel()
-                -- Colore o item recém-selecionado
                 if optionButtons[tostring(currentSelectedValue)] then
                     TweenService:Create(optionButtons[tostring(currentSelectedValue)], TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {TextColor3 = _G.Clickcolor}):Play()
                 end
@@ -1473,16 +1336,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um slider para seleção de valores numéricos.
-        @param titleText string - O título exibido ao lado do slider.
-        @param minValue number - O valor mínimo do slider.
-        @param maxValue number - O valor máximo do slider.
-        @param initialValue number - O valor inicial do slider.
-        @param decimalPlaces number - O número de casas decimais para exibir (0 para inteiros).
-        @param callback function - A função a ser chamada quando o valor do slider muda. Recebe o novo valor como argumento.
-        @return table - Um objeto com métodos: GetValue(), SetValue(value).
-    ]]
     function tabMethods:AddSlider(titleText, minValue, maxValue, initialValue, decimalPlaces, callback)
         assert(type(titleText) == "string", "AddSlider: titleText must be a string.")
         assert(type(minValue) == "number", "AddSlider: minValue must be a number.")
@@ -1491,7 +1344,7 @@ function Library:AddWindow(windowName, toggleKey)
         assert(type(decimalPlaces) == "number" or decimalPlaces == nil, "AddSlider: decimalPlaces must be a number or nil.")
         assert(type(callback) == "function" or callback == nil, "AddSlider: callback must be a function or nil.")
 
-        decimalPlaces = decimalPlaces or 0 -- Padrão para inteiros
+        decimalPlaces = decimalPlaces or 0
 
         local sliderContainer = Instance.new("Frame")
         sliderContainer.Name = "Slider"
@@ -1604,15 +1457,15 @@ function Library:AddWindow(windowName, toggleKey)
                 local newValue = normalizedValue * (maxValue - minValue) + minValue
 
                 currentSliderValue = newValue
-                if decimalPlaces == 0 then -- Força para inteiro se decimalPlaces for 0
+                if decimalPlaces == 0 then
                     currentSliderValue = math.floor(currentSliderValue)
                 end
-                currentSliderValue = math.clamp(currentSliderValue, minValue, maxValue) -- Garante que o valor permaneça dentro do range
+                currentSliderValue = math.clamp(currentSliderValue, minValue, maxValue)
                 updateSliderVisuals()
             end
         end))
 
-        updateSliderVisuals() -- Define o estado inicial
+        updateSliderVisuals()
 
         return {
             GetValue = function() return currentSliderValue end,
@@ -1627,11 +1480,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um separador com texto.
-        @param separatorText string - O texto exibido no separador.
-        @return table - Um objeto com o método `SetSeparatorText(text)`.
-    ]]
     function tabMethods:AddSeperator(separatorText)
         assert(type(separatorText) == "string", "AddSeperator: separatorText must be a string.")
 
@@ -1665,9 +1513,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria uma linha horizontal como separador visual.
-    ]]
     function tabMethods:AddLine()
         local lineContainer = Instance.new("Frame")
         lineContainer.Name = "Line"
@@ -1686,11 +1531,6 @@ function Library:AddWindow(windowName, toggleKey)
         line.Size = UDim2.new(0, 455, 0, 2)
     end;
 
-    --[[
-        Cria uma label que inclui o avatar do jogador local.
-        @param labelText string - O texto principal da label.
-        @return table - Um objeto com o método `SetLabelText(text)`.
-    ]]
     function tabMethods:AddNLabel(labelText)
         assert(type(labelText) == "string", "AddNLabel: labelText must be a string.")
 
@@ -1720,7 +1560,7 @@ function Library:AddWindow(windowName, toggleKey)
         playerAvatar.BorderSizePixel = 0
         playerAvatar.Position = UDim2.new(0.851666677, 0, -0.1, 0)
         playerAvatar.Size = UDim2.new(0, 60, 0, 60)
-        playerAvatar.Image = "https://www.roblox.com/headshot-thumbnail/image?userId=" .. Players.LocalPlayer.UserId .. "&width=420&height=420&format=png"
+        playerAvatar.Image = "rbxthumb://type=AvatarHeadShot&id=" .. Players.LocalPlayer.UserId .. "&w=420&h=420"
 
         return {
             SetLabelText = function(text)
@@ -1730,12 +1570,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria uma label com título e descrição.
-        @param title string - O título da label.
-        @param description string - A descrição/texto secundário da label.
-        @return table - Um objeto com o método `SetDescriptionText(text)`.
-    ]]
     function tabMethods:AddLabel(title, description)
         assert(type(title) == "string", "AddLabel: title must be a string.")
         assert(type(description) == "string", "AddLabel: description must be a string.")
@@ -1788,12 +1622,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria uma label especial com link para Discord e status do script.
-        @param joinDiscordText string - Texto para o convite do Discord.
-        @param scriptStatusText string - Texto para o status do script.
-        @return table - Um objeto com o método `SetScriptStatus(status, color)`.
-    ]]
     function tabMethods:AddLabel2(joinDiscordText, scriptStatusText)
         assert(type(joinDiscordText) == "string", "AddLabel2: joinDiscordText must be a string.")
         assert(type(scriptStatusText) == "string", "AddLabel2: scriptStatusText must be a string.")
@@ -1830,7 +1658,7 @@ function Library:AddWindow(windowName, toggleKey)
         scriptStatusLabel.TextColor3 = Color3.fromRGB(175, 175, 175)
         scriptStatusLabel.TextSize = 11.000
         scriptStatusLabel.Position = UDim2.new(0.83, 0, -0.2, 0)
-        scriptStatusLabel.Text = scriptStatusText -- Pode ser "Script Status" ou similar
+        scriptStatusLabel.Text = scriptStatusText
         scriptStatusLabel.TextXAlignment = Enum.TextXAlignment.Left
 
         local statusIndicator = Instance.new("TextLabel")
@@ -1872,10 +1700,6 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    --[[
-        Cria um painel de status exibindo informações do mundo e do jogador.
-        @return table - Um objeto com métodos para atualizar as informações: SetWeather(), SetTime(), SetEvent(), SetLuck().
-    ]]
     function tabMethods:AddStatusPanel()
         local statusPanel = Instance.new("Frame")
         statusPanel.Name = "StatusPanel"
@@ -1883,7 +1707,7 @@ function Library:AddWindow(windowName, toggleKey)
         statusPanel.BackgroundColor3 = _G.ButtonColor
         statusPanel.BorderColor3 = Color3.fromRGB(0, 0, 0)
         statusPanel.BorderSizePixel = 0
-        statusPanel.Position = UDim2.new(0.373591274, 0, 0.330402017, 0) -- Posição pode precisar de ajuste
+        statusPanel.Position = UDim2.new(0.373591274, 0, 0.330402017, 0)
         statusPanel.Size = UDim2.new(0, 455, 0, 165)
         createCorner(statusPanel)
 
@@ -2004,7 +1828,6 @@ function Library:AddWindow(windowName, toggleKey)
         luckLabel.TextColor3 = Color3.fromRGB(226, 226, 226)
         luckLabel.TextSize = 14.000
 
-        -- Atualiza informações do mundo Roblox (acessa ReplicatedStorage diretamente)
         trackConnection(RunService.Heartbeat:Connect(function()
             pcall(function()
                 local worldFolder = ReplicatedStorage:FindFirstChild("world")
@@ -2026,7 +1849,7 @@ function Library:AddWindow(windowName, toggleKey)
         local joinDiscordButton = Instance.new("TextButton")
         joinDiscordButton.Name = "JoinDiscordButton"
         joinDiscordButton.Parent = statusPanel
-        joinDiscordButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218) -- Cor do Discord
+        joinDiscordButton.BackgroundColor3 = Color3.fromRGB(114, 137, 218)
         joinDiscordButton.BackgroundTransparency = 1.000
         joinDiscordButton.BorderColor3 = Color3.fromRGB(0, 0, 0)
         joinDiscordButton.BorderSizePixel = 0
@@ -2070,17 +1893,8 @@ function Library:AddWindow(windowName, toggleKey)
         }
     end;
 
-    -- =========================================================================================
-    --                                    MÉTODOS DA JANELA
-    -- =========================================================================================
+    local windowMethods = {}
 
-    local windowMethods = {} -- Tabela de métodos para a janela principal
-
-    --[[
-        Adiciona uma nova aba à janela.
-        @param tabName string - O nome da aba.
-        @return table - Um objeto com métodos para adicionar elementos à aba (AddButton, AddToggle, etc.).
-    ]]
     function windowMethods:AddTab(tabName)
         assert(type(tabName) == "string", "AddTab: tabName must be a string.")
 
@@ -2106,7 +1920,7 @@ function Library:AddWindow(windowName, toggleKey)
         leftStripe.BackgroundColor3 = _G.SeparateColor
         leftStripe.BorderSizePixel = 0
         leftStripe.Position = UDim2.new(0, 0, 0.5, -7.5)
-        leftStripe.Size = UDim2.new(0, 4, 0, 0) -- Inicia com tamanho 0
+        leftStripe.Size = UDim2.new(0, 4, 0, 0)
         leftStripe.BackgroundTransparency = 0.3
         leftStripe.Visible = false
         createCorner(leftStripe, BUTTON_CORNER_RADIUS)
@@ -2146,11 +1960,9 @@ function Library:AddWindow(windowName, toggleKey)
         tabPadding.PaddingLeft = UDim.new(0, 10)
         tabPadding.PaddingTop = UDim.new(0, 10)
 
-        -- Passa o scrollFrame para os métodos da aba para que eles saibam onde criar elementos
         local currentTabMethods = setmetatable({scrollFrame = tabScrollFrame}, {__index = tabMethods})
 
         trackConnection(tabButton.MouseButton1Click:Connect(function()
-            -- Esconde todas as outras abas e listras
             for _, child in next, tabFolder:GetChildren() do
                 if child:IsA("Frame") and string.find(child.Name, "MainTab_") then
                     child.Visible = false
@@ -2167,91 +1979,67 @@ function Library:AddWindow(windowName, toggleKey)
                 end
             end
 
-            -- Mostra a aba selecionada e sua listra
             mainTabFrame.Visible = true
             leftStripe.Visible = true
             TweenService:Create(leftStripe, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UDim2.new(0, 4, 0, 14)}):Play()
             TweenService:Create(tabButton, TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = 0}):Play()
         end))
 
-        -- Ajusta o CanvasSize das scroll frames
         trackConnection(RunService.Stepped:Connect(function()
             pageScrollFrame.CanvasSize = UDim2.new(0, 0, 0, pageListLayout.AbsoluteContentSize.Y + 10)
             tabScrollFrame.CanvasSize = UDim2.new(0, 0, 0, tabListLayout.AbsoluteContentSize.Y + 30)
         end))
 
-        -- Ativa a primeira aba por padrão
         if not currentWindow.firstTabSet then
             currentWindow.firstTabSet = true
             task.spawn(function()
-                task.wait(0.1) -- Pequeno delay para garantir que a UI renderizou
+                task.wait(0.1)
                 tabButton.MouseButton1Click:Fire()
             end)
         end
         return currentTabMethods
     end;
 
-    --[[
-        Define um novo título para a janela da biblioteca.
-        @param newTitle string - O novo título da janela.
-    ]]
     function windowMethods:SetWindowTitle(newTitle)
         assert(type(newTitle) == "string", "SetWindowTitle: newTitle must be a string.")
         hubNameLabel.Text = newTitle
     end
 
-    --[[
-        Destrói a janela da biblioteca e limpa todas as conexões de eventos.
-    ]]
     function windowMethods:Destroy()
-        cleanupConnections() -- Desconecta todos os eventos
-        mainScreenGui:Destroy() -- Destrói a ScreenGui e todos os seus filhos
+        cleanupConnections()
+        mainScreenGui:Destroy()
         local statsFrame = CoreGui:FindFirstChild("StatsFrame")
         if statsFrame then statsFrame.Enabled = false end
         local closeFrame = CoreGui:FindFirstChild("CloseFrame")
         if closeFrame then closeFrame.Enabled = false end
     end
 
-    -- Inicializa a janela como aberta
     openUI()
 
     return windowMethods
 end;
 
---[[
-    Define o tema de cores globais da biblioteca.
-    @param colors table - Uma tabela contendo as novas cores (ClickColor, BackgroundColor, SeparateColor, ButtonColor).
-                        Exemplo: {ClickColor = Color3.fromRGB(0, 255, 0), BackgroundColor = Color3.fromRGB(10, 10, 10)}
-]]
 function Library:SetTheme(colors)
     assert(type(colors) == "table", "SetTheme: colors must be a table.")
     if colors.ClickColor then _G.Clickcolor = colors.ClickColor end
     if colors.BackgroundColor then _G.BackgroundColor = colors.BackgroundColor end
     if colors.SeparateColor then _G.SeparateColor = colors.SeparateColor end
     if colors.ButtonColor then _G.ButtonColor = colors.ButtonColor end
-    -- Note: UI já renderizada pode precisar de uma chamada de atualização manual
-    -- para aplicar as novas cores a todos os elementos. Um sistema de "recarga"
-    -- da UI seria necessário para isso, ou reconectar eventos que leem _G.Colors.
 end
 
--- =========================================================================================
---                                    SISTEMA DE STATUS (Inicial)
--- =========================================================================================
-
--- Limpa instâncias antigas de StatsFrame ou CloseFrame se existirem
 for _, child in ipairs(CoreGui:GetChildren()) do
     if child.Name == "StatsFrame" or child.Name == "CloseFrame" then
         child:Destroy()
     end
 end
 
-local isGamepadOrTouch = UserInputService:IsGamepadEnabled() or UserInputService.TouchEnabled
+local isTouchEnabled = UserInputService.TouchEnabled
 
-if isGamepadOrTouch then -- Se for touch ou gamepad, mostra o CloseFrame (para reabrir a UI)
+if isTouchEnabled then
     local closeFrameGui = Instance.new("ScreenGui")
     closeFrameGui.Name = "CloseFrame"
     closeFrameGui.Parent = CoreGui
-    closeFrameGui.Enabled = false -- Começa desativado
+    closeFrameGui.Enabled = false
 
     local closeButtonFrame = Instance.new("Frame")
     closeButtonFrame.Parent = closeFrameGui
@@ -2279,7 +2067,7 @@ if isGamepadOrTouch then -- Se for touch ou gamepad, mostra o CloseFrame (para r
     imageLabel.Size = UDim2.new(0, 30, 0, 30)
     imageLabel.Position = UDim2.new(0, 15, 0, 15)
     imageLabel.BackgroundTransparency = 1
-    imageLabel.Image = EXTERNAL_IDS[#EXTERNAL_IDS] -- Último ID
+    imageLabel.Image = EXTERNAL_IDS[#EXTERNAL_IDS]
 
     local topFrame = Instance.new("Frame")
     topFrame.Name = "Top"
@@ -2307,12 +2095,12 @@ if isGamepadOrTouch then -- Se for touch ou gamepad, mostra o CloseFrame (para r
         TweenService:Create(button, TweenInfo.new(0.4, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundColor3 = Color3.fromRGB(15, 15, 15)}):Play()
     end))
     makeDraggable(topFrame, closeButtonFrame)
-else -- Para Teclado e Mouse (computador)
+else
     local statsFrameGui = Instance.new("ScreenGui")
     statsFrameGui.Name = "StatsFrame"
     statsFrameGui.Parent = CoreGui
     statsFrameGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    statsFrameGui.Enabled = false -- Começa desativado
+    statsFrameGui.Enabled = false
 
     local statsPanel = Instance.new("ImageLabel")
     statsPanel.Parent = statsFrameGui
@@ -2349,7 +2137,7 @@ else -- Para Teclado e Mouse (computador)
     serverUptimeLabel.Position = UDim2.new(0.111111112, 0, 0.374603179, 0)
     serverUptimeLabel.Size = UDim2.new(0, 200, 0, 50)
     serverUptimeLabel.Font = Enum.Font.SourceSans
-    serverUptimeLabel.Text = "Server Uptime: N/A" -- Será atualizado
+    serverUptimeLabel.Text = "Server Uptime: N/A"
     serverUptimeLabel.TextColor3 = Color3.fromRGB(243, 243, 243)
     serverUptimeLabel.TextSize = 14.000
     serverUptimeLabel.TextWrapped = true
@@ -2480,13 +2268,12 @@ else -- Para Teclado e Mouse (computador)
     makeDraggable(title, statsPanel)
 
     local scriptStartTime = os.time()
-    _G.TotalValueFR = 0 -- Mantido para compatibilidade, mas o uso de _G é desencorajado
+    _G.TotalValueFR = 0
 
-    -- Otimização do loop de atualização de stats
     local lastPanelStatsUpdate = 0
     trackConnection(RunService.Heartbeat:Connect(function()
         local currentTime = tick()
-        if currentTime - lastPanelStatsUpdate >= 1 then -- Atualiza apenas a cada 1 segundo
+        if currentTime - lastPanelStatsUpdate >= 1 then
             lastPanelStatsUpdate = currentTime
             pcall(function()
                 local elapsedSeconds = currentTime - scriptStartTime
@@ -2494,17 +2281,16 @@ else -- Para Teclado e Mouse (computador)
                 local hours = math.floor(elapsedSeconds / (60 * 60)) % 24
                 local minutes = math.floor(elapsedSeconds / 60) % 60
 
-                currentTimeLabel.Text = os.date("%H:%M") -- Apenas hora atual
+                currentTimeLabel.Text = os.date("%H:%M")
                 scriptUptimeLabel.Text = string.format("Script Uptime: %dD %dH %dM", days, hours, minutes)
 
-                -- Acessando valores da PlayerGui de forma segura
                 local serverInfoUptime = getPlayerGuiValue({"serverInfo", "serverInfo", "uptime"})
                 serverUptimeLabel.Text = "Server " .. (serverInfoUptime and serverInfoUptime.Text or "N/A")
 
                 local trackerFishCaughtNum = getPlayerGuiValue({"hud", "safezone", "menu", "stats_safezone", "scroll", "Tracker_Fish Caught [Total]", "num"})
                 totalCaughtFishLabel.Text = "Total Caught Fish: " .. tostring(trackerFishCaughtNum and trackerFishCaughtNum.Text or "0")
 
-                if game.PlaceId == 72907489978215 then -- Exemplo de PlaceId, ajuste conforme necessário
+                if game.PlaceId == 72907489978215 then
                     totalFishPriceLabel.Text = "Total Fish Price: " .. _G.TotalValueFR .. "E$"
                 else
                     totalFishPriceLabel.Text = "Total Fish Price: " .. _G.TotalValueFR .. "C$"
@@ -2513,9 +2299,5 @@ else -- Para Teclado e Mouse (computador)
         end
     end))
 end
-
--- =========================================================================================
---                                    RETORNO DA BIBLIOTECA
--- =========================================================================================
 
 return Library
