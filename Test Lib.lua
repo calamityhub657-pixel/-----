@@ -1020,17 +1020,16 @@ return function(cfgs, Parent)
 		ImageRectSize = Vector2.new(256, 256),
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
-		Rotation = 180, -- ALTERAÇÃO: Rotação inicial para "fechado" (esquerda)
+		Rotation = 180, -- Rotação inicial: fechado (esquerda)
 		Name = "chevron-down",
 		ZIndex = 99,
-		-- Parent = topbox,
+		-- Parent é adicionado via children list abaixo
 	})
 	
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		LineHeight = 1.2000000476837158,
 		RichText = true,
-		-- TextColor3 = Color3.fromRGB(234, 234, 234),
 		ThemeProps = {
 			TextColor3 = "titlecolor",
 			BackgroundColor3 = "maincolor",
@@ -1049,9 +1048,9 @@ return function(cfgs, Parent)
 		Parent = topbox,
 		Name = "Title", -- Adicionado Name="Title" para busca
 	}, {
-		chevronIcon
+		chevronIcon -- chevronIcon é filho de 'name'
 	})
-	if cfgs.description ~= nil and cfgs.description ~= "" then
+	if cfgs.Description ~= nil and cfgs.Description ~= "" then
 	local description = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		RichText = true,
@@ -1079,10 +1078,6 @@ return function(cfgs, Parent)
 	end
 
 	if cfgs.Title ~= nil and cfgs.Title ~= "" then
-		-- topbox.AutomaticSize = Enum.AutomaticSize.Y
-
-		-- name.AutomaticSize = Enum.AutomaticSize.Y
-		-- name.TextWrapped = true
 		name.Size = UDim2.new(1, 0, 0, 16)
 		name.Text = cfgs.Title
 		name.TextSize = cfgs.TitleTextSize
@@ -1090,7 +1085,6 @@ return function(cfgs, Parent)
 	end
 
 	Section.SectionContainer = Create("Frame", {
-		-- AutomaticSize = Enum.AutomaticSize.Y,
 		Name = "SectionContainer",
 		ClipsDescendants = true,
 		BackgroundTransparency = 1,
@@ -1118,11 +1112,11 @@ return function(cfgs, Parent)
 
 	local isExpanded = cfgs.Defualt
 	if cfgs.Defualt == true then
-	chevronIcon.Rotation = 90 -- ALTERAÇÃO: Se padrão for aberto, seta para "aberto" (baixo)
+	chevronIcon.Rotation = 90 -- Se padrão for aberto, seta para "aberto" (baixo)
 	end
 	local function toggleSection()
 		isExpanded = not isExpanded
-		local targetRotation = isExpanded and 90 or 180 -- ALTERAÇÃO: 90 para aberto (baixo), 180 para fechado (esquerda)
+		local targetRotation = isExpanded and 90 or 180 -- 90 para aberto (baixo), 180 para fechado (esquerda)
 		
 		-- Animate chevron rotation
 		game:GetService("TweenService"):Create(chevronIcon, TweenInfo.new(0.3), {
