@@ -6,41 +6,11 @@ local ImportGlobals
 
 -- Holds direct closure data (defining this before the DOM tree for line debugging etc)
 local ClosureBindings = {
-    function()local wax,script,require=ImportGlobals(1)local ImportGlobals --[[!nl]]--local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
-local Tools = require(script.Parent.tools)
-local ElementsTable = require(script.Parent.elements)
-local Components = script.Parent.components
-
-local Create = Tools.Create
-local AddConnection = Tools.AddConnection
-local AddScrollAnim = Tools.AddScrollAnim
-local isMobile = Tools.isMobile()
-local GetPropsCurrentTheme = Tools.GetPropsCurrentTheme
-local CancelTween = Tools.CancelTween
-local RemoveThemedObject = Tools.RemoveThemedObject
-local RemoveManagedUIElement = Tools.RemoveManagedUIElement
-
---[[!nl]]--type LibraryConfig = {
-    Title: string?,
-    ToggleButton: string?,
-    BindGui: Enum.KeyCode?,
-}
-
-type TabContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: typeof(Library),
-}
-
---[[!nl]]--local function generateRandomString(length: number): string
+    function()local wax,script,require=ImportGlobals(1)local ImportGlobals return (function(...)wait(1)
+function generateRandomString(length)
     local charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()-_=+[]{}|;:',.<>?/`~"
     local randomString = ""
-    math.randomseed(tick() * 1000)) -- Use tick() for more variation
-    -- Original: math.randomseed(os.time()) 
+    math.randomseed(os.time()) -- Seed the random generator
 
     for i = 1, length do
         local randomIndex = math.random(1, #charset)
@@ -50,150 +20,134 @@ type TabContext = {
     return randomString
 end
 
---[[!nl]]--local function MakeDraggable(DragPoint: GuiObject, Main: GuiObject)
-    -- Consider if mobile dragging is ever desired, currently disabled in MainModule.lua
-    local dragging, dragInput, mousePos, framePos = false, nil, nil, nil
-    AddConnection(DragPoint.InputBegan, function(input: InputObject)
-        if
-            input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch
-        then
-            dragging = true
-            mousePos = input.Position
-            framePos = Main.Position
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
 
-            -- No need for input.Changed connection here if we rely on InputEnded below
-            -- Input.Changed might fire too frequently and cause performance issues if not handled carefully
-        end
-    end)
-    -- Use UserInputService.InputEnded for a more robust end condition for dragging
-    AddConnection(UserInputService.InputEnded, function(input: InputObject)
-        if dragging and (input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch) then
-            dragging = false
-        end
-    end)
+local ElementsTable = require(script.elements)
+local Tools = require(script.tools)
+local Components = script.components
 
-    AddConnection(UserInputService.InputChanged, function(input: InputObject)
-        if
-            (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch)
-            and dragging
-        then
-            local delta = input.Position - mousePos
-            Main.Position =
-                UDim2.new(framePos.X.Scale, framePos.X.Offset + delta.X, framePos.Y.Scale, framePos.Y.Offset + delta.Y)
-        end
-    end)
+local Create = Tools.Create
+local AddConnection = Tools.AddConnection
+local AddScrollAnim = Tools.AddScrollAnim
+local isMobile = Tools.isMobile()
+local CurrentThemeProps = Tools.GetPropsCurrentTheme()
+
+local function MakeDraggable(DragPoint, Main)
+	-- if isMobile then return end
+	local Dragging, DragInput, MousePos, FramePos = false
+	AddConnection(DragPoint.InputBegan, function(Input)
+		if
+			Input.UserInputType == Enum.UserInputType.MouseButton1
+			or Input.UserInputType == Enum.UserInputType.Touch
+		then
+			Dragging = true
+			MousePos = Input.Position
+			FramePos = Main.Position
+
+			AddConnection(Input.Changed, function()
+				if Input.UserInputState == Enum.UserInputState.End then
+					Dragging = false
+				end
+			end)
+		end
+	end)
+	AddConnection(DragPoint.InputChanged, function(Input)
+		if Input.UserInputType == Enum.UserInputType.MouseMovement then
+			DragInput = Input
+		end
+	end)
+	AddConnection(UserInputService.InputChanged, function(Input)
+		if
+			(Input.UserInputType == Enum.UserInputType.MouseMovement or Input.UserInputType == Enum.UserInputType.Touch)
+			and Dragging
+		then
+			local Delta = Input.Position - MousePos
+			Main.Position =
+				UDim2.new(FramePos.X.Scale, FramePos.X.Offset + Delta.X, FramePos.Y.Scale, FramePos.Y.Offset + Delta.Y)
+		end
+	end)
 end
 
---[[!nl]]--local Library = {
-    Window = nil :: ScreenGui?,
-    Flags = {},
-    Signals = {}, -- Managed by Tools.Signals
-    ToggleBind = nil,
-    LoadedWindow = nil :: CanvasGroup?, -- The main draggable canvas group
-    managedUIElements = {} :: {[Instance]: boolean}, -- Track UI elements for destruction, though tools.lua also tracks
+local Library = {
+	Window = nil,
+	Flags = {},
+	Signals = {},
+	ToggleBind = nil,
 }
 
---[[!nl]]--local GUI = Create("ScreenGui", {
-    Name = generateRandomString(16),
-    Parent = gethui(), -- game.Players.LocalPlayer.PlayerGui,
-    ResetOnSpawn = false,
-    ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+
+
+local GUI = Create("ScreenGui", {
+	Name = generateRandomString(16),
+	Parent = gethui(), --game.Players.LocalPlayer.PlayerGui,
+	ResetOnSpawn = false,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
 })
-Library.managedUIElements[GUI] = true -- Still track here for completeness, though tools does it
 
---[[!nl]]--require(Components.notif):Init(GUI)
+require(Components.notif):Init(GUI)
 
---[[!nl]]--function Library:SetTheme(themeName: string)
-    Tools.SetTheme(themeName)
+function Library:SetTheme(themeName)
+	Tools.SetTheme(themeName)
 end
 
---[[!nl]]--function Library:GetTheme()
-    return GetPropsCurrentTheme()
+function Library:GetTheme()
+	return Tools.GetPropsCurrentTheme()
 end
 
---[[!nl]]--function Library:AddTheme(themeName: string, themeProps: Tools.Theme)
-    Tools.AddTheme(themeName, themeProps)
+function Library:AddTheme(themeName, themeProps)
+	Tools.AddTheme(themeName, themeProps)
 end
 
---[[!nl]]--function Library:IsRunning(): boolean
-    return GUI.Parent == gethui() -- Check if GUI is still parented
+function Library:IsRunning()
+	return GUI.Parent == gethui() -- game.Players.LocalPlayer.PlayerGui -- testing ver with playergui
 end
 
---[[!nl]]--function Library:Cleanup()
-    -- Disconnect all managed signals
-    Tools.Disconnect()
-
-    -- Cancel all active tweens managed by Tools
-    for obj, propTable in pairs(Tools.managedTweens) do
-        for prop, tweenData in pairs(propTable) do
-            if tweenData.tween.PlaybackState == Enum.PlaybackState.Playing then
-                tweenData.tween:Cancel()
-            end
-            propTable[prop] = nil -- Clear reference
-        end
-        Tools.managedTweens[obj] = nil -- Clear object table
+-- CORREÇÃO 6: Adicionar função de limpeza e atualizar loop de verificação
+function Library:Cleanup()
+    for i, Connection in pairs(Tools.Signals) do
+        pcall(function() -- Proteção contra erros ao desconectar
+            Connection:Disconnect()
+        end)
     end
-    Tools.managedTweens = {} -- Ensure full reset
-
-    -- Destroy all managed UI elements and remove their theme tracking
-    for obj, _ in pairs(Tools.managedUIElements) do
-        if obj and obj.Parent then -- Check if object still exists and is parented
-            RemoveThemedObject(obj) -- Remove from theme tracking first
-            obj:Destroy()
-        end
-    end
-    Tools.managedUIElements = {} -- Clear the table
-
-    -- Clean up active dialog if any
-    local DialogModule = require(Components.dialog)
-    if DialogModule.ActiveDialog then
-        if DialogModule.ActiveDialog.Parent then
-            DialogModule.ActiveDialog:Destroy()
-        end
-        DialogModule.ActiveDialog = nil
-    end
-
-    print("Library cleanup completed.")
+    Tools.Signals = {} -- Limpar a tabela de sinais após desconectar tudo
 end
 
---[[!nl]]--task.spawn(function()
+task.spawn(function()
     while Library:IsRunning() do
-        task.wait(Tools.Constants.CLEANUP_CHECK_INTERVAL) -- Reduced frequency
+        task.wait(1) -- Reduzir frequência de checagem para economizar CPU
     end
-    Library:Cleanup() -- Call the cleanup function
+    Library:Cleanup() -- Chamar a nova função de limpeza
 end)
 
---[[!nl]]--local Elements = {}
+local Elements = {}
 Elements.__index = Elements
 Elements.__namecall = function(Table, Key, ...)
 	return Elements[Key](...)
 end
 
---[[!nl]]--for _, ElementComponent in ipairs(ElementsTable) do
+for _, ElementComponent in ipairs(ElementsTable) do
 	assert(ElementComponent.__type, "ElementComponent missing __type")
 	assert(type(ElementComponent.New) == "function", "ElementComponent missing New function")
 
-	Elements["Add" .. ElementComponent.__type] = function(self: TabContext, Idx: string, Config: Tools.Config)
-		-- Dependency Injection: pass context directly to New function
-		local context: TabContext = {
-			Container = self.Container,
-			Type = self.Type,
-			ScrollFrame = self.ScrollFrame,
-			Library = Library, -- Assign Library correctly
-		}
-		return ElementComponent:New(context, Idx, Config)
+	Elements["Add" .. ElementComponent.__type] = function(self, Idx, Config)
+		ElementComponent.Container = self.Container
+		ElementComponent.Type = self.Type
+		ElementComponent.ScrollFrame = self.ScrollFrame
+		ElementComponent.Library = Library -- Assign Library correctly
+
+		return ElementComponent:New(Idx, Config)
 	end
 end
 
---[[!nl]]--Library.Elements = Elements
+Library.Elements = Elements
 
---[[!nl]]--function Library:Callback(Callback: (...any) -> any, ...: any): (true, ...any) | (false, string)
+function Library:Callback(Callback, ...)
 	local success, result = pcall(Callback, ...)
 
 	if success then
-		-- print("Callback executed successfully!")
-		return true, result
+		-- print(`Callback executed successfully!`)
+		return result
 	else
 		local errorMessage = tostring(result)
 		local errorLine = string.match(errorMessage, ":(%d+):")
@@ -205,36 +159,36 @@ end
 		end
 
 		errorInfo = errorInfo
-			.. `Possible Fix: Please check the function implementation for potential issues such as invalid arguments or logic errors at the indicated line number.`
-		warn(errorInfo) -- Using warn for less intrusive error messages
-        return false, errorInfo
+			.. `Possible Fix: Please check the function implementation for potential issues suchas invalid arguments or logic errors at the indicated line number.`
+		print(errorInfo)
 	end
 end
 
---[[!nl]]--function Library:Notification(titleText: string, descriptionText: string, duration: number)
+function Library:Notification(titleText, descriptionText, duration)
 	require(Components.notif):ShowNotification(titleText, descriptionText, duration)
 end
 
---[[!nl]]--function Library:Dialog(config: Components.DialogConfig): CanvasGroup?
-    local dialogModule = require(Components.dialog)
-    return dialogModule:Create(config, self.LoadedWindow or GUI) -- Fallback to GUI if window not loaded
+function Library:Dialog(config)
+    return require(Components.dialog):Create(config, self.LoadedWindow)
 end
 
---[[!nl]]--function Library:Load(cfgs: LibraryConfig?): table -- Returns Tabs module
+function Library:Load(cfgs)
+
 	cfgs = cfgs or {}
 	cfgs.Title = cfgs.Title or "Window"
 	cfgs.ToggleButton = cfgs.ToggleButton or ""
 	cfgs.BindGui = cfgs.BindGui or Enum.KeyCode.RightControl
 
 	if Library.Window then
-		warn("Cannot create more than one window. Destroying existing GUI.")
-		Library:Cleanup() -- Full cleanup before attempting to create a new window
+		print("Cannot create more than one window.")
+		GUI:Destroy()
 	end
 	
 	Library.Window = GUI
 
 	local canvas_group = Create("CanvasGroup", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
+		-- BackgroundColor3 = Color3.fromRGB(9, 9, 9),
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
@@ -247,7 +201,8 @@ end
 			CornerRadius = UDim.new(0, 6),
 		}),
 	})
-    -- `Create` now automatically adds to managedUIElements
+
+	-- shared.Window = canvas_group
 
 	if isMobile then
 		canvas_group.Size = UDim2.new(0.8, 0, 0.8, 0)
@@ -275,41 +230,45 @@ end
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 	})
 
 	local function ToggleVisibility()
 		local isVisible = canvas_group.Visible
 		local endPosition = isVisible and UDim2.new(0.5, 0, -1, 0) or UDim2.new(0.5, 0, 0.5, 0)
-		
-        CancelTween(canvas_group, "Position")
-        -- The rest of the commented tweens here were not being used, 
-        -- so no need to cancel them unless they are added back.
-
+		local fadeTo = isVisible and 1 or 0
+	
 		local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 	
 		local positionTween = TweenService:Create(canvas_group, tweenInfo, { Position = endPosition })
-		Tools.AddManagedTween(positionTween, canvas_group, "Position")
-		
+		-- local fadeTween = TweenService:Create(canvas_group, tweenInfo, { BackgroundTransparency = fadeTo })
+		-- local toggleFadeTween = TweenService:Create(togglebtn, tweenInfo, { BackgroundTransparency = fadeTo })
+		-- local toggleFadeSTween = TweenService:Create(togglebtn.UIStroke, tweenInfo, { Transparency = fadeTo })
+	
 		canvas_group.Visible = true
 		togglebtn.Visible = false
 	
 		positionTween:Play()
+		-- fadeTween:Play()
+		-- toggleFadeTween:Play()
+		-- toggleFadeSTween:Play()
 		
-		AddConnection(positionTween.Completed, function()
+	
+		positionTween.Completed:Connect(function()
 			if isVisible then
 				canvas_group.Visible = false
 				togglebtn.Visible = true
 			end
-            Tools.RemoveManagedTween(positionTween)
 		end)
 	end
 
-	ToggleVisibility() -- Initial hide
+	ToggleVisibility()
+	-- ToggleVisibility()
 
 	MakeDraggable(togglebtn, togglebtn)
 	AddConnection(togglebtn.MouseButton1Click, ToggleVisibility)
-	AddConnection(UserInputService.InputBegan, function(value: InputObject)
+	AddConnection(UserInputService.InputBegan, function(value)
 		if value.KeyCode == cfgs.BindGui then
 			ToggleVisibility()
 		end
@@ -349,13 +308,6 @@ end
 		Size = UDim2.new(0, 200, 0, 40),
 		ZIndex = 10,
 		Parent = top_frame,
-	}, {
-		Create("UIPadding", {
-			PaddingBottom = UDim.new(0, 0),
-			PaddingLeft = UDim.new(0, 14),
-			PaddingRight = UDim.new(0, 0),
-			PaddingTop = UDim.new(0, 0),
-		}),
 	})
 
 	local minimizebtn = Create("TextButton", {
@@ -418,7 +370,8 @@ end
 
 	AddConnection(minimizebtn.MouseButton1Click, ToggleVisibility)
 	AddConnection(closebtn.MouseButton1Click, function()
-		Library:Cleanup() -- Clean up all UI elements and connections
+		canvas_group:Destroy()
+		togglebtn:Destroy()
 	end)
 
 	local tab_frame = Create("Frame", {
@@ -434,6 +387,7 @@ end
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = {
 				Color = "bordercolor",
 			},
@@ -481,11 +435,12 @@ end
 
 	local Tabs = {}
 
-	local TabModule = require(Components.tab):Init(containerFolder, Library)
-	function Tabs:AddTab(title: string): Components.Tab -- Corrected return type
+	local TabModule = require(Components.tab):Init(containerFolder)
+	function Tabs:AddTab(title)
 		return TabModule:New(title, TabHolder)
 	end
-	function Tabs:SelectTab(Tab: number)
+	function Tabs:SelectTab(Tab)
+		Tab = Tab or 1
 		TabModule:SelectTab(Tab)
 	end
 
@@ -494,48 +449,28 @@ end
 return Library
 
 end)() end,
-    [3] = function()local wax,script,require=ImportGlobals(3)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
+    [3] = function()local wax,script,require=ImportGlobals(3)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local ButtonComponent = require(script.Parent.Parent.elements.buttons)
 
 local Create = Tools.Create
-local Validate = Tools.Validate
 
---[[!nl]]--type DialogButtonConfig = {
-    Title: string,
-    Callback: ((...any) -> any)?,
-    Variant: "Primary" | "Ghost" | "Outline"?,
-}
+local DialogModule = {}
+local ActiveDialog = nil
 
-export type DialogConfig = {
-    Title: string,
-    Content: string,
-    Buttons: {DialogButtonConfig},
-}
-
---[[!nl]]--local DialogModule = {
-    ActiveDialog = nil :: ScrollingFrame?,
-}
-
---[[!nl]]--function DialogModule:Create(config: DialogConfig, parent: Instance): CanvasGroup?
-    local schema = {
-        Title = "string",
-        Content = "string",
-        Buttons = "table",
-    }
-    if not Validate(config, schema) then
-        warn("Dialog - Invalid config provided. Check Title, Content, and Buttons.")
-        return nil
-    end
+-- CORREÇÃO 4: Validar config e botões no Dialog
+function DialogModule:Create(config, parent)
+    -- Validar config
+    assert(config, "Dialog - Missing config")
+    assert(config.Title, "Dialog - Missing Title")
+    assert(config.Content, "Dialog - Missing Content")
+    assert(config.Buttons and type(config.Buttons) == "table", "Dialog - Missing or invalid Buttons")
 
     -- Remove existing dialog if any
-    if DialogModule.ActiveDialog then
-        if DialogModule.ActiveDialog.Parent then -- Ensure it's still in the hierarchy before destroying
-            DialogModule.ActiveDialog:Destroy()
-        end
-        DialogModule.ActiveDialog = nil
+    if ActiveDialog then
+        ActiveDialog:Destroy()
     end
 
-    local scrolling_frame = Instance.new("ScrollingFrame") :: ScrollingFrame
+    local scrolling_frame = Instance.new("ScrollingFrame")
     scrolling_frame.AutomaticCanvasSize = Enum.AutomaticSize.Y
     scrolling_frame.CanvasSize = UDim2.new(0, 0, 0, 0)
     scrolling_frame.ScrollBarImageColor3 = Color3.new(0.109804, 0.109804, 0.117647)
@@ -549,23 +484,20 @@ export type DialogConfig = {
     scrolling_frame.Visible = true
     scrolling_frame.ZIndex = 100
     scrolling_frame.Parent = parent
-    Tools.AddManagedUIElement(scrolling_frame)
 
     -- Add a full-frame button to prevent clicks passing through
-    local blocker = Instance.new("TextButton") :: TextButton
+    local blocker = Instance.new("TextButton")
     blocker.Size = UDim2.new(1, 0, 1, 0)
     blocker.Position = UDim2.new(0, 0, 0, 0)
     blocker.BackgroundTransparency = 1 -- Fully transparent
     blocker.Text = "" -- No text
     blocker.AutoButtonColor = false -- Prevents hover effects
     blocker.Parent = scrolling_frame
-    Tools.AddManagedUIElement(blocker)
 
-    local uipadding_3 = Instance.new("UIPadding") :: UIPadding
+    local uipadding_3 = Instance.new("UIPadding")
     uipadding_3.PaddingBottom = UDim.new(0, 45)
     uipadding_3.PaddingTop = UDim.new(0, 45)
     uipadding_3.Parent = scrolling_frame
-    Tools.AddManagedUIElement(uipadding_3)
 
     local dialog = Create("CanvasGroup", {
         AnchorPoint = Vector2.new(0.5, 0),
@@ -584,12 +516,10 @@ export type DialogConfig = {
             Thickness = 1,
         }),
     })
-    -- `Create` automatically adds `dialog` and its children to managedUIElements
 
-    local uilist_layout = Instance.new("UIListLayout") :: UIListLayout
+    local uilist_layout = Instance.new("UIListLayout")
     uilist_layout.SortOrder = Enum.SortOrder.LayoutOrder
     uilist_layout.Parent = dialog
-    Tools.AddManagedUIElement(uilist_layout)
 
     -- Create top bar with title
     Create("Frame", {
@@ -613,7 +543,6 @@ export type DialogConfig = {
             ThemeProps = { TextColor3 = "titlecolor" },
         }),
     })
-    -- `Create` automatically adds this frame and its children to managedUIElements
 
     -- Create content container
     local content = Create("TextLabel", {
@@ -631,15 +560,13 @@ export type DialogConfig = {
         ThemeProps = { TextColor3 = "descriptioncolor" },
         Parent = dialog,
     })
-    -- `Create` automatically adds `content` to managedUIElements
 
-    local uipadding = Instance.new("UIPadding") :: UIPadding
+    local uipadding = Instance.new("UIPadding")
     uipadding.PaddingBottom = UDim.new(0, 8)
     uipadding.PaddingLeft = UDim.new(0, 12)
     uipadding.PaddingRight = UDim.new(0, 12)
     uipadding.PaddingTop = UDim.new(0, 8)
     uipadding.Parent = content
-    Tools.AddManagedUIElement(uipadding)
 
     -- Create button container
     local buttonContainer = Create("Frame", {
@@ -666,46 +593,35 @@ export type DialogConfig = {
             SortOrder = Enum.SortOrder.LayoutOrder,
         }),
     })
-    -- `Create` automatically adds `buttonContainer` to managedUIElements
 
     -- Add buttons with validation
     for i, buttonConfig in ipairs(config.Buttons) do
-        local buttonSchema = {
-            Title = "string",
-            Callback = "function?",
-            Variant = "string?",
-        }
-        -- Ensure Config.Title is available for warn message even if validation fails
-        buttonConfig.Title = buttonConfig.Title or "Button " .. i 
-
-        if not Validate(buttonConfig, buttonSchema) then
-            warn("Dialog button " .. i .. " ('" .. buttonConfig.Title .. "') has invalid config, using defaults.")
-            -- Ensure minimal required fields are set for component creation
-            buttonConfig.Callback = buttonConfig.Callback or function() end
-            buttonConfig.Variant = buttonConfig.Variant or (i == 1 and "Primary" or "Ghost")
+        if not buttonConfig.Title then
+            warn("Dialog button " .. i .. " missing Title, skipping")
+            continue
         end
         
-        local wrappedCallback = function()
-            local library = require(script.Parent.Parent) -- Access main library for safe callback
-            library:Callback(buttonConfig.Callback)
-            if DialogModule.ActiveDialog then
-                if DialogModule.ActiveDialog.Parent then
-                    DialogModule.ActiveDialog:Destroy()
-                end
-                DialogModule.ActiveDialog = nil
-            end
+        if not buttonConfig.Callback then
+            warn("Dialog button " .. i .. " missing Callback, using empty function")
+            buttonConfig.Callback = function() end
         end
 
-        local buttonContext = {Container = buttonContainer}
-        local button = setmetatable(buttonContext, ButtonComponent):New({
+        local wrappedCallback = function()
+            buttonConfig.Callback()
+            scrolling_frame:Destroy()
+        end
+
+        -- Create a new button instance with the container
+        local button = setmetatable({
+            Container = buttonContainer
+        }, ButtonComponent):New({
             Title = buttonConfig.Title,
-            Variant = buttonConfig.Variant,
+            Variant = buttonConfig.Variant or (i == 1 and "Primary" or "Ghost"),
             Callback = wrappedCallback,
         })
-        -- The button component already handles adding its UI elements to managed list
     end
 
-    DialogModule.ActiveDialog = scrolling_frame
+    ActiveDialog = scrolling_frame
     return dialog
 end
 
@@ -713,32 +629,15 @@ end
 return DialogModule
 
 end)() end,
-    [4] = function()local wax,script,require=ImportGlobals(4)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
+    [4] = function()local wax,script,require=ImportGlobals(4)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Create = Tools.Create
-local Validate = Tools.Validate
 
---[[!nl]]--type ElementConfig = {
-    Title: string,
-    Description: string?,
-}
-
---[[!nl]]--return function(title: string, desc: string?, parent: Instance): {Frame: TextButton, topbox: Frame, SetTitle: (string) -> (), SetDesc: (string?) -> (), Destroy: () -> ()}
-    local schema = {
-        Title = "string",
-        Description = "string?",
-    }
-    -- Validate the conceptual config passed, even if directly passed as args
-    if not Validate({Title = title, Description = desc}, schema) then
-        warn("Element creation with Title:", title, "received invalid config.")
-        title = title or "Untitled Element"
-        -- desc can be nil/empty, which is handled
-    end
-
+return function(title, desc, parent)
 	local Element = {}
 	Element.Frame = Create("TextButton", {
 		Font = Enum.Font.SourceSans,
 		Text = "",
-		Name = Tools.Constants.ELEMENT_NAME,
+		Name = "Element",
 		TextColor3 = Color3.fromRGB(0, 0, 0),
 		TextSize = 14,
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -759,7 +658,6 @@ local Validate = Tools.Validate
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
 	})
-    -- `Create` automatically adds `Element.Frame` to managedUIElements
 
 	Element.topbox = Create("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -774,7 +672,6 @@ local Validate = Tools.Validate
 		Visible = true,
 		Parent = Element.Frame,
 	})
-    -- `Create` automatically adds `Element.topbox` to managedUIElements
 
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
@@ -797,21 +694,22 @@ local Validate = Tools.Validate
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = true,
 		Parent = Element.topbox,
-		Name = Tools.Constants.ELEMENT_TITLE_NAME,
+		Name = "Title",
 	}, {
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 0),
 			PaddingLeft = UDim.new(0, 0),
 			PaddingRight = UDim.new(0, 36),
 			PaddingTop = UDim.new(0, 2),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `name` to managedUIElements
 
 	local description = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		RichText = true,
-		Name = Tools.Constants.ELEMENT_DESCRIPTION_NAME,
+		Name = "Description", -- Adicione o nome aqui para a pesquisa
+		-- TextColor3 = Color3.fromRGB(168, 168, 168),
 		ThemeProps = {
 			TextColor3 = "elementdescription",
 			BackgroundColor3 = "maincolor",
@@ -820,28 +718,30 @@ local Validate = Tools.Validate
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Text = desc or "",
+		Text = desc,
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
 		Position = UDim2.new(0, 0, 0, 23),
 		Size = UDim2.new(1, 0, 0, 0),
-		Visible = (desc ~= nil and desc ~= ""),
+		Visible = true,
 		Parent = Element.Frame,
 	}, {})
-    -- `Create` automatically adds `description` to managedUIElements
 
-	function Element:SetTitle(Set: string)
+	function Element:SetTitle(Set)
 		name.Text = Set
 	end
 
-	function Element:SetDesc(Set: string?)
-		if Set == nil or Set == "" then
+	function Element:SetDesc(Set)
+		if Set == nil then
+			Set = ""
+		end
+		if Set == "" then
 			description.Visible = false
 		else
 			description.Visible = true
 		end
-		description.Text = Set or ""
+		description.Text = Set
 	end
 
 	Element:SetDesc(desc)
@@ -849,30 +749,21 @@ local Validate = Tools.Validate
 
 	function Element:Destroy()
 		Element.Frame:Destroy()
-        -- `Element.Frame` is tracked by Tools.managedUIElements, so Destroying it and then calling
-        -- cleanup for Tools.managedUIElements will handle its children and theme objects.
-        -- No need to manually remove individual child elements from Tools.managedUIElements or Tools.themedObjects.
 	end
 
 	return Element
 end
 
 end)() end,
-    [5] = function()local wax,script,require=ImportGlobals(5)local ImportGlobals --[[!nl]]--local TweenService = game:GetService("TweenService")
-
-local Tools = require(script.Parent.Parent.tools)
+    [5] = function()local wax,script,require=ImportGlobals(5)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+local TweenService = game:GetService("TweenService")
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local CancelTween = Tools.CancelTween
-local RemoveManagedTween = Tools.RemoveManagedTween
-local RemoveManagedUIElement = Tools.RemoveManagedUIElement
 
---[[!nl]]--local Notif = {
-    MainHolder = nil :: Frame?,
-}
+local Notif = {}
 
---[[!nl]]--function Notif:Init(Gui: ScreenGui)
+function Notif:Init(Gui)
     self.MainHolder = Create("Frame", {
         AnchorPoint = Vector2.new(1, 1),
         BackgroundColor3 = Color3.fromRGB(255,255,255),
@@ -889,6 +780,7 @@ local RemoveManagedUIElement = Tools.RemoveManagedUIElement
             PaddingLeft = UDim.new(0, 0),
             PaddingRight = UDim.new(0, 12),
             PaddingTop = UDim.new(0, 0),
+            Archivable = true,
         }),
         Create("UIListLayout", {
             HorizontalAlignment = Enum.HorizontalAlignment.Right,
@@ -897,19 +789,14 @@ local RemoveManagedUIElement = Tools.RemoveManagedUIElement
             Padding = UDim.new(0, 8),
         })
     })
-    -- `Create` automatically adds `self.MainHolder` to managedUIElements
+    
 end
 
---[[!nl]]--function Notif:ShowNotification(titleText: string, descriptionText: string, duration: number)
-    if not self.MainHolder or not self.MainHolder.Parent then
-        warn("Notification system not initialized or MainHolder destroyed. Call Notif:Init(Gui) first.")
-        return
-    end
-
+function Notif:ShowNotification(titleText, descriptionText, duration)
     local main = Create("CanvasGroup", {
         AutomaticSize = Enum.AutomaticSize.Y,
         BackgroundColor3 = Color3.fromRGB(9, 9, 9),
-        BackgroundTransparency = 1, -- Initial transparency for fade-in effect
+        BackgroundTransparency = 1, -- Начальная прозрачность для эффекта появления
         BorderSizePixel = 0,
         ClipsDescendants = true,
         Size = UDim2.new(0, 300, 0, 0),
@@ -927,7 +814,6 @@ end
             Thickness = 1,
         }),
     })
-    -- `Create` automatically adds `main` to managedUIElements
 
     local holderin = Create("Frame", {
         AutomaticSize = Enum.AutomaticSize.Y,
@@ -947,7 +833,6 @@ end
             SortOrder = Enum.SortOrder.LayoutOrder,
         }),
     })
-    -- `Create` automatically adds `holderin` to managedUIElements
 
     local topframe = Create("Frame", {
         AutomaticSize = Enum.AutomaticSize.XY,
@@ -955,7 +840,6 @@ end
         Visible = true,
         Parent = holderin,
     })
-    -- `Create` automatically adds `topframe` to managedUIElements
 
     local user = Create("ImageLabel", {
         Image = "rbxassetid://10723415903",
@@ -964,7 +848,6 @@ end
         Visible = true,
         Parent = topframe,
     })
-    -- `Create` automatically adds `user` to managedUIElements
 
     local title = Create("TextLabel", {
         Font = Enum.Font.GothamMedium,
@@ -985,7 +868,6 @@ end
             PaddingLeft = UDim.new(0, 24),
         }),
     })
-    -- `Create` automatically adds `title` to managedUIElements
 
     local description = Create("TextLabel", {
         Font = Enum.Font.Gotham,
@@ -1002,7 +884,6 @@ end
         Visible = true,
         Parent = holderin,
     })
-    -- `Create` automatically adds `description` to managedUIElements
 
     local progress = Create("Frame", {
         AnchorPoint = Vector2.new(0.5, 1),
@@ -1016,7 +897,6 @@ end
             CornerRadius = UDim.new(1, 0),
         }),
     })
-    -- `Create` automatically adds `progress` to managedUIElements
 
     local progressindicator = Create("Frame", {
         BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -1028,50 +908,29 @@ end
             CornerRadius = UDim.new(1, 0),
         }),
     })
-    -- `Create` automatically adds `progressindicator` to managedUIElements
 
-    -- Fade-in animation for all elements
+    -- Анимация плавного появления для всех элементов
     local fadeInTweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-    
-    CancelTween(main, "BackgroundTransparency")
     local fadeInTween = TweenService:Create(main, fadeInTweenInfo, {BackgroundTransparency = 0.4})
-    Tools.AddManagedTween(fadeInTween, main, "BackgroundTransparency")
     fadeInTween:Play()
 
-    CancelTween(title, "TextTransparency")
     local fadeInTweenTitle = TweenService:Create(title, fadeInTweenInfo, {TextTransparency = 0})
-    Tools.AddManagedTween(fadeInTweenTitle, title, "TextTransparency")
     fadeInTweenTitle:Play()
 
-    CancelTween(description, "TextTransparency")
     local fadeInTweenDescription = TweenService:Create(description, fadeInTweenInfo, {TextTransparency = 0})
-    Tools.AddManagedTween(fadeInTweenDescription, description, "TextTransparency")
     fadeInTweenDescription:Play()
 
-    CancelTween(user, "ImageTransparency")
     local fadeInTweenUser = TweenService:Create(user, fadeInTweenInfo, {ImageTransparency = 0})
-    Tools.AddManagedTween(fadeInTweenUser, user, "ImageTransparency")
     fadeInTweenUser:Play()
 
-    -- Tween for progress bar
+    -- Tween для прогресса
     local tweenInfo = TweenInfo.new(duration, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut)
-    CancelTween(progressindicator, "Size")
     local tween = TweenService:Create(progressindicator, tweenInfo, {Size = UDim2.new(0, 0, 0, 2)})
-    Tools.AddManagedTween(tween, progressindicator, "Size")
     tween:Play()
 
-    -- Remove notification after Tween completes
-    AddConnection(tween.Completed, function()
-        if main and main.Parent then -- Check if main still exists before destroying
-            main:Destroy()
-        end
-        RemoveManagedTween(tween)
-        RemoveManagedTween(fadeInTween)
-        RemoveManagedTween(fadeInTweenTitle)
-        RemoveManagedTween(fadeInTweenDescription)
-        RemoveManagedTween(fadeInTweenUser)
-        -- Removing main from managedUIElements is implicitly handled by Destroying main
-        -- and the global cleanup iterating over Tools.managedUIElements
+    -- Удаление уведомления после завершения Tween
+    tween.Completed:Connect(function()
+        main:Destroy()
     end)
 
     -- if not game:GetService("RunService"):IsStudio() then
@@ -1082,37 +941,16 @@ end
 return Notif
 
 end)() end,
-    [6] = function()local wax,script,require=ImportGlobals(6)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
-local TweenService = game:GetService("TweenService")
+    [6] = function()local wax,script,require=ImportGlobals(6)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local CancelTween = Tools.CancelTween
-local Validate = Tools.Validate
 
---[[!nl]]--export type SectionConfig = { -- Exported for tab.lua
-    Title: string?,
-    Description: string?,
-    Default: boolean?,
-    Locked: boolean?,
-    TitleTextSize: number?,
-}
-
---[[!nl]]--return function(cfgs: SectionConfig, Parent: Instance): {SectionFrame: Frame, SectionContainer: Frame}
-    local schema = {
-        Title = "string?",
-        Description = "string?",
-        Default = "boolean?",
-        Locked = "boolean?",
-        TitleTextSize = "number?",
-    }
-    if not Validate(cfgs, schema) then
-        warn("Section creation received invalid config, using defaults.")
-        cfgs = cfgs or {}
-    end
+return function(cfgs, Parent)
+	cfgs = cfgs or {}
 	cfgs.Title = cfgs.Title or nil
 	cfgs.Description = cfgs.Description or nil
-	cfgs.Default  = cfgs.Default or false
+	cfgs.Defualt  = cfgs.Defualt or false
 	cfgs.Locked = cfgs.Locked or false
 	cfgs.TitleTextSize = cfgs.TitleTextSize or 14
 
@@ -1120,7 +958,7 @@ local Validate = Tools.Validate
 
 	Section.SectionFrame = Create("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Name = Tools.Constants.SECTION_NAME,
+		Name = "Section",
 		BackgroundTransparency = 1,
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
@@ -1136,6 +974,7 @@ local Validate = Tools.Validate
 			PaddingLeft = UDim.new(0, 12),
 			PaddingRight = UDim.new(0, 12),
 			PaddingTop = UDim.new(0, 6),
+			Archivable = true,
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -1145,13 +984,13 @@ local Validate = Tools.Validate
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 		Create("UIListLayout", {
 			Padding = UDim.new(0, 6),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-    -- `Create` automatically adds `Section.SectionFrame` to managedUIElements
 
 	local topbox = Create("TextButton", {
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -1171,7 +1010,6 @@ local Validate = Tools.Validate
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
 	})
-    -- `Create` automatically adds `topbox` to managedUIElements
 
 	local chevronIcon = Create("ImageButton", {
 		ThemeProps = {
@@ -1180,16 +1018,16 @@ local Validate = Tools.Validate
 		Image = "rbxassetid://15269180996",
 		ImageRectOffset = Vector2.new(0, 257),
 		ImageRectSize = Vector2.new(256, 256),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
+		BackgroundTransparency = 1, -- CORREÇÃO: Adicionado BackgroundTransparency
+		BorderSizePixel = 0,      -- CORREÇÃO: Adicionado BorderSizePixel
 		Size = UDim2.new(0, 24, 0, 24),
 		AnchorPoint = Vector2.new(1, 0),
 		Position = UDim2.new(1, 0, 0, 0),
-		Rotation = 180, -- Initial rotation: closed (left)
+		Rotation = 180, -- Rotação inicial: fechado (esquerda)
 		Name = "chevron-down",
 		ZIndex = 99,
+		-- Parent é adicionado via children list abaixo
 	})
-    -- `Create` automatically adds `chevronIcon` to managedUIElements
 	
 	local name = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
@@ -1211,17 +1049,16 @@ local Validate = Tools.Validate
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = false,
 		Parent = topbox,
-		Name = Tools.Constants.ELEMENT_TITLE_NAME,
+		Name = "Title", -- Adicionado Name="Title" para busca
 	}, {
-		chevronIcon -- chevronIcon is a child of 'name'
+		chevronIcon -- chevronIcon é filho de 'name'
 	})
-    -- `Create` automatically adds `name` to managedUIElements
-
 	if cfgs.Description ~= nil and cfgs.Description ~= "" then
 	local description = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
 		RichText = true,
-		Name = Tools.Constants.ELEMENT_DESCRIPTION_NAME,
+		Name = "Description", -- Adicione o nome aqui para a pesquisa
+		-- TextColor3 = Color3.fromRGB(168, 168, 168),
 		ThemeProps = {
 			TextColor3 = "descriptioncolor",
 			BackgroundColor3 = "maincolor",
@@ -1230,7 +1067,7 @@ local Validate = Tools.Validate
 		TextWrapped = true,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		AutomaticSize = Enum.AutomaticSize.Y,
-		Text = cfgs.Description or "",
+		Text = "",
 		BackgroundTransparency = 1,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
@@ -1239,7 +1076,7 @@ local Validate = Tools.Validate
 		Visible = true,
 		Parent = topbox,
 	}, {})
-    -- `Create` automatically adds `description` to managedUIElements
+	description.Text = cfgs.Description or ""
 	description.Visible = cfgs.Description ~= nil
 	end
 
@@ -1251,7 +1088,7 @@ local Validate = Tools.Validate
 	end
 
 	Section.SectionContainer = Create("Frame", {
-		Name = Tools.Constants.SECTION_CONTAINER_NAME,
+		Name = "SectionContainer",
 		ClipsDescendants = true,
 		BackgroundTransparency = 1,
 		ThemeProps = {
@@ -1272,141 +1109,89 @@ local Validate = Tools.Validate
 			PaddingLeft = UDim.new(0, 6),
 			PaddingRight = UDim.new(0, 1),
 			PaddingTop = UDim.new(0, 1),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `Section.SectionContainer` to managedUIElements
 
-	local isExpanded = cfgs.Default
-	if cfgs.Default == true then
-	chevronIcon.Rotation = 90 -- If default is open, set arrow to "open" (down)
+	local isExpanded = cfgs.Defualt
+	if cfgs.Defualt == true then
+	chevronIcon.Rotation = 90 -- Se padrão for aberto, seta para "aberto" (baixo)
 	end
-
-    -- Set initial size for container if expanded, otherwise 0
-    -- This relies on UIListLayout.AbsoluteContentSize, which updates after children are parented
-    -- So, for initial state, we set it to 0 if closed, or rely on future update if opened
-    if not isExpanded then
-        Section.SectionContainer.Size = UDim2.new(1, 0, 0, 0)
-    end
-
 	local function toggleSection()
 		isExpanded = not isExpanded
-		local targetRotation = isExpanded and 90 or 180 -- 90 for open (down), 180 for closed (left)
+		local targetRotation = isExpanded and 90 or 180 -- 90 para aberto (baixo), 180 para fechado (esquerda)
 		
 		-- Animate chevron rotation
-        CancelTween(chevronIcon, "Rotation")
-		local chevronTween = TweenService:Create(chevronIcon, TweenInfo.new(0.3), {
+		game:GetService("TweenService"):Create(chevronIcon, TweenInfo.new(0.3), {
 			Rotation = targetRotation
-		})
-        Tools.AddManagedTween(chevronTween, chevronIcon, "Rotation")
-		chevronTween:Play()
-        AddConnection(chevronTween.Completed, function() Tools.RemoveManagedTween(chevronTween) end)
+		}):Play()
 		
 		-- Animate section container
-        local targetSizeY = isExpanded and (Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18) or 0
-		local targetSize = UDim2.new(1, 0, 0, targetSizeY)
-        CancelTween(Section.SectionContainer, "Size")
-		local containerTween = TweenService:Create(Section.SectionContainer, TweenInfo.new(0.3), {
+		local targetSize = isExpanded and UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18) or UDim2.new(1, 0, 0, 0)
+		game:GetService("TweenService"):Create(Section.SectionContainer, TweenInfo.new(0.3), {
 			Size = targetSize
-		})
-        Tools.AddManagedTween(containerTween, Section.SectionContainer, "Size")
-		containerTween:Play()
-        AddConnection(containerTween.Completed, function() Tools.RemoveManagedTween(containerTween) end)
+		}):Play()
 	end
-
 	if cfgs.Locked == false then
 	AddConnection(topbox.MouseButton1Click, toggleSection)
 	AddConnection(chevronIcon.MouseButton1Click, toggleSection)
 	end
 	if cfgs.Locked == true then
 	topbox:Destroy()
-    -- topbox is tracked by Tools.managedUIElements, so Destroying it is sufficient for cleanup.
 	end
 	
 	AddConnection(Section.SectionContainer.UIListLayout:GetPropertyChangedSignal("AbsoluteContentSize"), function()
 		if isExpanded then
-            -- Update size immediately to reflect new content when expanded
-            -- Check if Section.SectionContainer still exists before accessing its properties
-            if Section.SectionContainer and Section.SectionContainer.Parent then
-			    Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18)
-            end
+			Section.SectionContainer.Size = UDim2.new(1, 0, 0, Section.SectionContainer.UIListLayout.AbsoluteContentSize.Y + 18)
 		end
 	end)
 
 	return Section
 end
 end)() end,
-    [7] = function()local wax,script,require=ImportGlobals(7)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
+    [7] = function()local wax,script,require=ImportGlobals(7)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+
 local TweenService = game:GetService("TweenService")
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
 local AddScrollAnim = Tools.AddScrollAnim
-local GetPropsCurrentTheme = Tools.GetPropsCurrentTheme
+local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
 -- Add debug toggle
 local SEARCH_DEBUG = false
 
---[[!nl]]--local function debugLog(...)
+local function debugLog(...)
 	if SEARCH_DEBUG then
 		print("[Search]", ...)
 	end
 end
 
---[[!nl]]--type Tab = {
-    Selected: boolean,
-    Name: string,
-    Type: string,
-    TabBtn: TextButton,
-    Container: ScrollingFrame,
-    SearchContainer: Frame,
-    searchableElements: {[Instance]: true}, -- Stores elements that can be searched within this tab
-    updateSearch: (() -> ())?,
-    searchDebounceConnection: RBXScriptConnection?, -- New: For debouncing search
-}
-
-export type TabModuleType = { -- Exported for MainModule.lua
-    Window: Instance?,
-    Tabs: {[number]: Tab},
-    Containers: {[number]: ScrollingFrame},
-    SelectedTab: number,
-    TabCount: number,
-    Library: any, -- Reference to the main Library
-    Init: (Instance, any) -> TabModuleType,
-    New: (string, Instance) -> Tab,
-    SelectTab: (number) -> (),
-}
-
---[[!nl]]--local TabModule: TabModuleType = {
+local TabModule = {
 	Window = nil,
 	Tabs = {},
 	Containers = {},
 	SelectedTab = 0,
 	TabCount = 0,
-    Library = nil,
 }
 
---[[!nl]]--function TabModule:Init(Window: Instance, Library: any): TabModuleType
+function TabModule:Init(Window)
 	TabModule.Window = Window
-    TabModule.Library = Library -- Store reference to main Library
 	return TabModule
 end
 
---[[!nl]]--function TabModule:New(Title: string, Parent: Instance): Tab
+function TabModule:New(Title, Parent)
+	local Library = require(script.Parent.Parent)
 	local Window = TabModule.Window
-	local Elements = TabModule.Library.Elements
+	local Elements = Library.Elements
 
 	TabModule.TabCount = TabModule.TabCount + 1
 	local TabIndex = TabModule.TabCount
 
-	local Tab: Tab = {
+	local Tab = {
 		Selected = false,
 		Name = Title,
-		Type = Tools.Constants.TAB_TYPE,
-        TabBtn = nil :: TextButton, -- Initialized below
-        Container = nil :: ScrollingFrame, -- Initialized below
-        SearchContainer = nil :: Frame, -- Initialized below
-        searchableElements = {}, -- Initialize searchable elements index
-        searchDebounceConnection = nil,
+		Type = "Tab",
 	}
 
 	Tab.TabBtn = Create("TextButton", {
@@ -1420,7 +1205,7 @@ end
 		BorderSizePixel = 0,
 	}, {
 		Create("TextLabel", {
-			Name = Tools.Constants.ELEMENT_TITLE_NAME,
+			Name = "Title",
 			Font = Enum.Font.Gotham,
 			TextColor3 = Color3.fromRGB(63, 63, 63),
 			TextSize = 14,
@@ -1443,12 +1228,10 @@ end
 			BorderSizePixel = 0,
 		}),
 	})
-    -- `Create` automatically adds `Tab.TabBtn` to managedUIElements
-
 	Tab.Container = Create("ScrollingFrame", {
 		CanvasSize = UDim2.new(0, 0, 0, 0),
 		ThemeProps = {
-			ScrollBarImageColor3 = "scrollcolor",
+			ScrollBarImageColor3 = "scrollocolor",
 			BackgroundColor3 = "maincolor",
 		},
 		ScrollBarThickness = 2,
@@ -1464,7 +1247,6 @@ end
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-    -- `Create` automatically adds `Tab.Container` to managedUIElements
 
 	AddScrollAnim(Tab.Container)
 
@@ -1476,13 +1258,12 @@ end
 	Tab.SearchContainer = Create("Frame", {
 		Size = UDim2.new(1, 0, 0, 36),
 		BackgroundTransparency = 1,
-		Parent = Tab.Container,
+		Parent = Tab.Container, -- Mudar para Parent = Tab.Container
 		LayoutOrder = -1, -- Make sure it appears at the top
 		ThemeProps = {
 			BackgroundColor3 = "maincolor",
 		},
 	})
-    -- `Create` automatically adds `Tab.SearchContainer` to managedUIElements
 
 	local SearchBox = Create("TextBox", {
 		Size = UDim2.new(1, 0, 0, 32),
@@ -1494,6 +1275,7 @@ end
 		TextSize = 14,
 		BackgroundTransparency = 1,
 		ThemeProps = {
+			-- BackgroundColor3 = "elementbackground",
 			TextColor3 = "titlecolor",
 			PlaceholderColor3 = "descriptioncolor",
 		},
@@ -1513,18 +1295,17 @@ end
 			Thickness = 1,
 		}),
 	})
-    -- `Create` automatically adds `SearchBox` to managedUIElements
 
-	-- Function to filter elements based on search text
-	local function searchInElement(element: Instance, searchText: string): boolean
-		if not element or not element:IsA("GuiObject") then return false end
+	-- CORREÇÃO 3: Função para filtrar elementos baseada no texto de busca
+	local function searchInElement(element, searchText)
+		if not element then return false end -- Adicionado: Verificação se o elemento é nil
 		
-		local title = element:FindFirstChild(Tools.Constants.ELEMENT_TITLE_NAME, true) :: TextLabel?
-		local desc = element:FindFirstChild(Tools.Constants.ELEMENT_DESCRIPTION_NAME, true) :: TextLabel?
+		local title = element:FindFirstChild("Title", true)
+		local desc = element:FindFirstChild("Description", true)
 
-		if title and title.Text then
+		if title and title.Text then -- Adicionado: Verificação se title.Text existe
 			debugLog("Checking title:", title.Text)
-			-- Using 'true' for literal search (no patterns)
+			-- Adicionado 'true' para busca literal
 			local cleanTitle = title.Text:gsub("^%s+", "")
 			if string.find(string.lower(cleanTitle), searchText, 1, true) then
 				debugLog("Found match in title")
@@ -1532,8 +1313,9 @@ end
 			end
 		end
 
-		if desc and desc.Text then
+		if desc and desc.Text then -- Adicionado: Verificação se desc.Text existe
 			debugLog("Checking description:", desc.Text)
+			-- Adicionado 'true' para busca literal
 			if string.find(string.lower(desc.Text), searchText, 1, true) then
 				debugLog("Found match in description")
 				return true
@@ -1543,8 +1325,8 @@ end
 		return false
 	end
 
-	-- Moved updateSearch to be a property of the Tab instance
-	local function updateSearchForTab()
+	-- CORREÇÃO FINAL 2: Mover updateSearch para ser uma propriedade da instância Tab
+	local function updateSearchForTab() -- Renomeado para evitar conflito de escopo
 		local searchText = string.lower(SearchBox.Text)
 		debugLog("Search text:", searchText)
 
@@ -1553,63 +1335,53 @@ end
 			return
 		end
 
-		-- Iterate through indexed searchable elements
-		for elementRef in pairs(Tab.searchableElements) do
-			if elementRef and elementRef.Parent then -- Ensure element still exists and is parented
-				local isSection = elementRef.Name == Tools.Constants.SECTION_NAME
-				
-				if isSection then
-					-- For sections, we check if any of its children match, or if the section itself matches
-					local sectionMatches = searchInElement(elementRef, searchText)
-					local childrenMatch = false
-					local sectionContainer = elementRef:FindFirstChild(Tools.Constants.SECTION_CONTAINER_NAME)
-                    if sectionContainer then
-                        for _, childElement in ipairs(sectionContainer:GetChildren()) do
-                            if childElement.Name == Tools.Constants.ELEMENT_NAME then
-                                local elementVisible = searchInElement(childElement, searchText)
-                                childElement.Visible = elementVisible or searchText == ""
-                                if elementVisible then
-                                    childrenMatch = true
-                                end
-                            end
-                        end
-                    end
-					elementRef.Visible = sectionMatches or childrenMatch or searchText == ""
-					debugLog("Section visibility for", elementRef.Name, ":", elementRef.Visible)
-				elseif elementRef.Name == Tools.Constants.ELEMENT_NAME then
+		-- Loop through all children in the container
+		for _, child in ipairs(Tab.Container:GetChildren()) do
+			-- Ignorar o SearchContainer (pois agora ele é filho direto do Tab.Container)
+			if child ~= Tab.SearchContainer then
+				if child.Name == "Section" then
+					-- Handle section elements
+					local sectionContainer = child:FindFirstChild("SectionContainer")
+					if sectionContainer then
+						local visible = false
+						debugLog("Checking section:", child.Name)
+
+						-- Search through elements in section
+						for _, element in ipairs(sectionContainer:GetChildren()) do
+							if element.Name == "Element" then
+								local elementVisible = searchInElement(element, searchText)
+								element.Visible = elementVisible or searchText == ""
+								if elementVisible then
+									visible = true
+								end
+							end
+						end
+
+						-- Show section if any elements match or search is empty
+						child.Visible = visible or searchText == ""
+						debugLog("Section visibility:", child.Visible)
+					end
+				elseif child.Name == "Element" then
 					-- Handle standalone elements
-					local elementVisible = searchInElement(elementRef, searchText)
-					elementRef.Visible = elementVisible or searchText == ""
-					debugLog("Standalone element visibility for", elementRef.Name, ":", elementRef.Visible)
+					local elementVisible = searchInElement(child, searchText)
+					child.Visible = elementVisible or searchText == ""
+					debugLog("Standalone element visibility:", child.Visible)
 				end
 			end
 		end
 	end
 
-	-- Assign the search function to the Tab instance
+	-- Atribuir a função de busca à instância da Tab
 	Tab.updateSearch = updateSearchForTab
 
 	-- Update search when tab is selected
 	AddConnection(Tab.Container:GetPropertyChangedSignal("Visible"), function()
 		if Tab.Container.Visible then
-			Tab.updateSearch()
+			Tab.updateSearch() -- Usar a função atribuída à Tab
 		end
 	end)
 
-    -- Debounce the search input
-    AddConnection(SearchBox:GetPropertyChangedSignal("Text"), function()
-        if Tab.searchDebounceConnection then
-            Tab.searchDebounceConnection:Disconnect()
-            Tab.searchDebounceConnection = nil
-        end
-        Tab.searchDebounceConnection = task.delay(0.15, function()
-            if Tab.updateSearch then
-                Tab.updateSearch()
-            end
-            Tab.searchDebounceConnection = nil
-        end)
-    end)
-
+	AddConnection(SearchBox:GetPropertyChangedSignal("Text"), Tab.updateSearch) -- Usar a função atribuída à Tab
 
 	Tab.ContainerFrame = Tab.Container
 
@@ -1620,38 +1392,17 @@ end
 	TabModule.Containers[TabIndex] = Tab.ContainerFrame
 	TabModule.Tabs[TabIndex] = Tab
 
-	function Tab:AddSection(cfgs: Tools.SectionConfig): table
+	function Tab:AddSection(cfgs)
 		cfgs = cfgs or {}
 		cfgs.Title = cfgs.Title or nil
 		cfgs.Description = cfgs.Description or nil
-		local Section = { Type = Tools.Constants.SECTION_NAME }
+		local Section = { Type = "Section" }
 
-		local SectionComponent = require(script.Parent.section)
-		local SectionFrame = SectionComponent(cfgs, Tab.Container)
+		local SectionFrame = require(script.Parent.section)(cfgs, Tab.Container)
 		Section.Container = SectionFrame.SectionContainer
 
-        -- Add SectionFrame to searchable elements
-        Tab.searchableElements[SectionFrame.SectionFrame] = true
-        -- Iterate children of SectionFrame.SectionContainer to add individual elements
-        -- This relies on the UIListLayout updating and children being present
-        local function indexSectionChildren()
-            for _, child in ipairs(SectionFrame.SectionContainer:GetChildren()) do
-                if child.Name == Tools.Constants.ELEMENT_NAME then
-                    Tab.searchableElements[child] = true
-                end
-            end
-        end
-        -- Index children immediately if already expanded, otherwise after content is visible
-        AddConnection(SectionFrame.SectionContainer.UIListLayout.ChildAdded, indexSectionChildren)
-        AddConnection(SectionFrame.SectionContainer.UIListLayout.ChildRemoved, function(child: Instance)
-            if child.Name == Tools.Constants.ELEMENT_NAME then
-                Tab.searchableElements[child] = nil
-            end
-        end)
-        indexSectionChildren() -- Initial indexing
-
-		function Section:AddGroupButton(): table
-			local GroupButton = { Type = Tools.Constants.GROUP_BUTTON_TYPE }
+		function Section:AddGroupButton()
+			local GroupButton = { Type = "Group" }
 			GroupButton.GroupContainer = Create("Frame", {
 				AutomaticSize = Enum.AutomaticSize.Y,
 				BackgroundTransparency = 1,
@@ -1670,7 +1421,6 @@ end
 					SortOrder = Enum.SortOrder.LayoutOrder,
 				}),
 			})
-            -- `Create` automatically adds `GroupButton.GroupContainer` to managedUIElements
 
 			GroupButton.Container = GroupButton.GroupContainer
 
@@ -1678,99 +1428,70 @@ end
 			return GroupButton
 		end
 
-        -- Create a local proxy for Elements to intercept AddElement* calls for this tab
-        local TabElements = setmetatable({}, {
-            __index = function(_, key)
-                local originalFunc = Elements[key]
-                if string.match(key, "^Add") and type(originalFunc) == "function" then
-                    return function(selfContext: TabContext, Idx: string, Config: Tools.Config)
-                        local newElement = originalFunc(selfContext, Idx, Config)
-                        if newElement and newElement.Frame then
-                            Tab.searchableElements[newElement.Frame] = true
-                        end
-                        return newElement
-                    end
-                end
-                return originalFunc
-            end
-        })
-
-		setmetatable(Section, TabElements) -- Set metatable to the proxy
+		setmetatable(Section, Elements)
 		return Section
 	end
 
+	-- setmetatable(Tab, Elements)
 	return Tab
 end
 
---[[!nl]]--function TabModule:SelectTab(TabIdx: number)
-    local CurrentThemeProps = GetPropsCurrentTheme()
+function TabModule:SelectTab(Tab)
+    TabModule.SelectedTab = Tab
 
-    TabModule.SelectedTab = TabIdx
-
-    for idx, tab in pairs(TabModule.Tabs) do
-        -- Cancel existing tweens before starting new ones
-        Tools.CancelTween(tab.TabBtn.Title, "TextColor3")
-        Tools.CancelTween(tab.TabBtn.Line, "BackgroundColor3")
-
+    for _, v in next, TabModule.Tabs do
         TweenService:Create(
-            tab.TabBtn.Title,
+            v.TabBtn.Title,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { TextColor3 = CurrentThemeProps.offTextBtn }
         ):Play()
         TweenService:Create(
-            tab.TabBtn.Line,
+            v.TabBtn.Line,
             TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
             { BackgroundColor3 = CurrentThemeProps.offBgLineBtn }
         ):Play()
-        tab.Selected = false
+        v.Selected = false
         
         -- Hide search container for non-selected tabs
-        if tab.SearchContainer then
-            tab.SearchContainer.Visible = false
+        if v.SearchContainer then
+            v.SearchContainer.Visible = false
         end
     end
 
-    local selectedTab = TabModule.Tabs[TabIdx]
-    if selectedTab then
-        -- Cancel existing tweens before starting new ones for the selected tab
-        Tools.CancelTween(selectedTab.TabBtn.Title, "TextColor3")
-        Tools.CancelTween(selectedTab.TabBtn.Line, "BackgroundColor3")
+    local selectedTab = TabModule.Tabs[Tab]
+    TweenService:Create(
+        selectedTab.TabBtn.Title,
+        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+        { TextColor3 = CurrentThemeProps.onTextBtn }
+    ):Play()
+    TweenService:Create(
+        selectedTab.TabBtn.Line,
+        TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
+        { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
+    ):Play()
 
-        TweenService:Create(
-            selectedTab.TabBtn.Title,
-            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-            { TextColor3 = CurrentThemeProps.onTextBtn }
-        ):Play()
-        TweenService:Create(
-            selectedTab.TabBtn.Line,
-            TweenInfo.new(0.125, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut),
-            { BackgroundColor3 = CurrentThemeProps.onBgLineBtn }
-        ):Play()
+    task.spawn(function()
+        for _, Container in pairs(TabModule.Containers) do
+            Container.Visible = false
+        end
 
-        task.spawn(function()
-            for _, Container in pairs(TabModule.Containers) do
-                Container.Visible = false
+        -- Show search container for selected tab
+        if selectedTab.SearchContainer then
+            selectedTab.SearchContainer.Visible = true
+            -- CORREÇÃO FINAL 2: Chamar a função de busca da instância da Tab
+            if selectedTab.updateSearch then
+                selectedTab.updateSearch()
             end
+        end
 
-            -- Show search container for selected tab
-            if selectedTab.SearchContainer then
-                selectedTab.SearchContainer.Visible = true
-                if selectedTab.updateSearch then
-                    selectedTab.updateSearch()
-                end
-            end
-
-            TabModule.Containers[TabIdx].Visible = true
-        end)
-    else
-        warn("Attempted to select a non-existent tab:", TabIdx)
-    end
+        TabModule.Containers[Tab].Visible = true
+    end)
 end
 
 return TabModule
 
 end)() end,
-    [8] = function()local wax,script,require=ImportGlobals(8)local ImportGlobals --[[!nl]]--local Elements = {}
+    [8] = function()local wax,script,require=ImportGlobals(8)local ImportGlobals return (function(...)local Elements = {}
 
 for _, Theme in next, script:GetChildren() do
 	table.insert(Elements, require(Theme))
@@ -1778,32 +1499,15 @@ end
 
 return Elements
 end)() end,
-    [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals --[[!nl]]--local UserInputService = game:GetService("UserInputService")
+    [9] = function()local wax,script,require=ImportGlobals(9)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local Validate = Tools.Validate
 
---[[!nl]]--type BindConfig = {
-    Title: string,
-    Description: string?,
-    Hold: boolean?,
-    Callback: ((holding: boolean) -> ())?,
-    ChangeCallback: ((key: string) -> ())?,
-    Default: Enum.KeyCode | Enum.UserInputType | string,
-}
-
-type BindContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local BlacklistedKeys = {
+local BlacklistedKeys = {
 	Enum.KeyCode.Unknown,
 	Enum.KeyCode.W,
 	Enum.KeyCode.A,
@@ -1819,34 +1523,20 @@ type BindContext = {
 	Enum.KeyCode.Escape,
 }
 
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Bind"
 
---[[!nl]]--function Element:New(context: BindContext, Idx: string, Config: BindConfig)
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        Hold = "boolean?",
-        Callback = "function?",
-        ChangeCallback = "function?",
-        Default = "any", -- Can be KeyCode, UserInputType, or string
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Bind" 
-    if not Validate(Config, schema) then
-        warn("Bind element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Hold = Config.Hold or false
-        Config.Callback = Config.Callback or function() end
-        Config.ChangeCallback = Config.ChangeCallback or function() end
-        Config.Default = Config.Default or Enum.KeyCode.RightControl
-    end
-
-	local Bind = { Value = nil :: Enum.KeyCode | Enum.UserInputType | string, Binding = false, Type = "Bind" }
+function Element:New(Idx, Config)
+	assert(Config.Title, "Bind - Missing Title")
+	Config.Description = Config.Description or nil
+	Config.Hold = Config.Hold or false
+	Config.Callback = Config.Callback or function() end
+	Config.ChangeCallback = Config.ChangeCallback or function() end
+	local Bind = { Value = nil, Binding = false, Type = "Bind" }
 	local Holding = false
 
-	local BindFrame = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+	local BindFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	local value = Create("TextLabel", {
 		Font = Enum.Font.Gotham,
@@ -1871,14 +1561,15 @@ Element.__type = "Bind"
 			PaddingLeft = UDim.new(0, 4),
 			PaddingRight = UDim.new(0, 4),
 			PaddingTop = UDim.new(0, 0),
+			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 4),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `value` to managedUIElements
 
-	AddConnection(BindFrame.Frame.InputEnded, function(Input: InputObject)
+	AddConnection(BindFrame.Frame.InputEnded, function(Input)
 		if Input.UserInputType == Enum.UserInputType.MouseButton1 then
 			if Bind.Binding then
 				return
@@ -1888,103 +1579,71 @@ Element.__type = "Bind"
 		end
 	end)
 
-	function Bind:Set(Key: Enum.KeyCode | Enum.UserInputType | string)
+	function Bind:Set(Key)
 		Bind.Binding = false
-        local keyName: string
-        if typeof(Key) == "EnumItem" then
-            keyName = Key.Name
-        else
-            keyName = Key
-        end
-		Bind.Value = keyName
-		value.Text = keyName
-		context.Library:Callback(Config.ChangeCallback, keyName)
+		Bind.Value = Key or Bind.Value
+		Bind.Value = Bind.Value.Name or Bind.Value
+		value.Text = Bind.Value
+		Config.ChangeCallback(Bind.Value)
 	end
 
-	AddConnection(UserInputService.InputBegan, function(Input: InputObject)
+	AddConnection(UserInputService.InputBegan, function(Input)
 		if UserInputService:GetFocusedTextBox() then
 			return
 		end
-        
-        local currentKeyName: string
-        if Input.UserInputType == Enum.UserInputType.Keyboard then
-            currentKeyName = Input.KeyCode.Name
-        else
-            currentKeyName = Input.UserInputType.Name
-        end
-
-		if (currentKeyName == Bind.Value) and not Bind.Binding then
+		if (Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value) and not Bind.Binding then
 			if Config.Hold then
 				Holding = true
-				context.Library:Callback(Config.Callback, Holding)
+				Config.Callback(Holding)
 			else
-				context.Library:Callback(Config.Callback)
+				Config.Callback()
 			end
 		elseif Bind.Binding then
-			local KeyToSet: Enum.KeyCode | Enum.UserInputType | string
-			
-            local isBlacklisted = table.find(BlacklistedKeys, Input.KeyCode)
-            if Input.UserInputType == Enum.UserInputType.Keyboard and not isBlacklisted then
-                KeyToSet = Input.KeyCode
-            elseif Input.UserInputType ~= Enum.UserInputType.Keyboard and Input.UserInputType ~= Enum.UserInputType.None then
-                KeyToSet = Input.UserInputType
-            else
-                KeyToSet = Bind.Value -- Fallback to current if invalid input
-            end
-
-			Bind:Set(KeyToSet)
+			local Key
+			pcall(function()
+				if not table.find(BlacklistedKeys, Input.KeyCode) then
+					Key = Input.KeyCode
+				end
+			end)
+			Key = Key or Bind.Value
+			Bind:Set(Key)
 		end
 	end)
 
-	AddConnection(UserInputService.InputEnded, function(Input: InputObject)
-        local currentKeyName: string
-        if Input.UserInputType == Enum.UserInputType.Keyboard then
-            currentKeyName = Input.KeyCode.Name
-        else
-            currentKeyName = Input.UserInputType.Name
-        end
-
-		if currentKeyName == Bind.Value then
+	AddConnection(UserInputService.InputEnded, function(Input)
+		if Input.KeyCode.Name == Bind.Value or Input.UserInputType.Name == Bind.Value then
 			if Config.Hold and Holding then
 				Holding = false
-				context.Library:Callback(Config.Callback, Holding)
+				Config.Callback(Holding)
 			end
 		end
 	end)
 
 	Bind:Set(Config.Default)
 
-	context.Library.Flags[Idx] = Bind
+	self.Library.Flags[Idx] = Bind
 	return Bind
 end
 
 return Element
 
 end)() end,
-    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals --[[!nl]]--local TweenService = game:GetService("TweenService")
+    [10] = function()local wax,script,require=ImportGlobals(10)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local GetPropsCurrentTheme = Tools.GetPropsCurrentTheme
-local CancelTween = Tools.CancelTween
-local Validate = Tools.Validate
+local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
---[[!nl]]--type ButtonConfig = {
-    Title: string,
-    Variant: "Primary" | "Ghost" | "Outline"?,
-    Callback: ((...any) -> any)?,
-}
+local Element = {}
+Element.__index = Element
+Element.__type = "Button"
 
-type ButtonContext = {
-    Container: Instance,
-}
-
---[[!nl]]--local ButtonStyles = {
+local ButtonStyles = {
 	Primary = {
 		TextColor3 = Color3.fromRGB(9, 9, 9),
-		BackgroundColor3 = GetPropsCurrentTheme().primarycolor,
+		BackgroundColor3 = CurrentThemeProps.primarycolor,
 		BackgroundTransparency = 0,
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
@@ -2027,40 +1686,30 @@ type ButtonContext = {
 	},
 }
 
---[[!nl]]--local function ApplyTweens(button: TextButton, config: {[string]: any}, uiStroke: UIStroke?)
-	local tweenInfo = TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out) -- Faster tween for responsiveness
+local function ApplyTweens(button, config, uiStroke)
+	local tweenInfo = TweenInfo.new(0.5, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 	local tweenGoals = {}
 
 	for property, value in pairs(config) do
 		if property ~= "UIStroke" then
-            CancelTween(button, property) -- Cancel existing tween for this property
 			tweenGoals[property] = value
 		end
 	end
 
-    if next(tweenGoals) ~= nil then -- Only create tween if there are goals
-        local tween = TweenService:Create(button, tweenInfo, tweenGoals)
-        Tools.AddManagedTween(tween, button, "TweenState") -- Manage a generic tween state
-        tween:Play()
-        AddConnection(tween.Completed, function() Tools.RemoveManagedTween(tween) end)
-    end
+	local tween = TweenService:Create(button, tweenInfo, tweenGoals)
+	tween:Play()
 
 	if uiStroke and config.UIStroke then
 		local strokeTweenGoals = {}
 		for property, value in pairs(config.UIStroke) do
-            CancelTween(uiStroke, property) -- Cancel existing tween for this property
 			strokeTweenGoals[property] = value
 		end
-        if next(strokeTweenGoals) ~= nil then -- Only create tween if there are goals
-            local strokeTween = TweenService:Create(uiStroke, tweenInfo, strokeTweenGoals)
-            Tools.AddManagedTween(strokeTween, uiStroke, "TweenStrokeState") -- Manage a generic tween state
-            strokeTween:Play()
-            AddConnection(strokeTween.Completed, function() Tools.RemoveManagedTween(strokeTween) end)
-        end
+		local strokeTween = TweenService:Create(uiStroke, tweenInfo, strokeTweenGoals)
+		strokeTween:Play()
 	end
 end
 
---[[!nl]]--local function CreateButton(style: "Primary" | "Ghost" | "Outline", text: string, parent: Instance): TextButton
+local function CreateButton(style, text, parent)
 	local config = ButtonStyles[style]
 	assert(config, "Invalid button style: " .. style)
 
@@ -2083,33 +1732,33 @@ end
 			PaddingLeft = UDim.new(0, 16),
 			PaddingRight = UDim.new(0, 16),
 			PaddingTop = UDim.new(0, 8),
+			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 6),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `button` to managedUIElements
 
-    local uiStroke: UIStroke?
 	if config.UIStroke then
-		uiStroke = Create("UIStroke", {
+		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 			Color = config.UIStroke.Color,
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 			Parent = button,
 		})
-        -- `Create` automatically adds `uiStroke` to managedUIElements
 	end
 
-	AddConnection(button.MouseEnter, function()
+	button.MouseEnter:Connect(function()
 		if config.HoverConfig then
-			ApplyTweens(button, config.HoverConfig, uiStroke)
+			ApplyTweens(button, config.HoverConfig)
 		end
 	end)
 
-	AddConnection(button.MouseLeave, function()
+	button.MouseLeave:Connect(function()
 		ApplyTweens(button, {
 			BackgroundColor3 = config.BackgroundColor3,
 			TextColor3 = config.TextColor3,
@@ -2117,18 +1766,18 @@ end
 			BorderColor3 = config.BorderColor3,
 			BorderSizePixel = config.BorderSizePixel,
 			UIStroke = config.UIStroke,
-		}, uiStroke)
+		})
 	end)
 
-	AddConnection(button.MouseButton1Down, function()
+	button.MouseButton1Down:Connect(function()
 		if config.FocusConfig then
-			ApplyTweens(button, config.FocusConfig, uiStroke)
+			ApplyTweens(button, config.FocusConfig)
 		end
 	end)
 
-	AddConnection(button.MouseButton1Up, function()
+	button.MouseButton1Up:Connect(function()
 		if config.HoverConfig then
-			ApplyTweens(button, config.HoverConfig, uiStroke)
+			ApplyTweens(button, config.HoverConfig)
 		else
 			ApplyTweens(button, {
 				BackgroundColor3 = config.BackgroundColor3,
@@ -2137,38 +1786,21 @@ end
 				BorderColor3 = config.BorderColor3,
 				BorderSizePixel = config.BorderSizePixel,
 				UIStroke = config.UIStroke,
-			}, uiStroke)
+			})
 		end
 	end)
 
 	return button
 end
 
---[[!nl]]--local Element = {}
-Element.__index = Element
-Element.__type = "Button"
-
---[[!nl]]--function Element:New(context: ButtonContext, Config: ButtonConfig)
-    local schema = {
-        Title = "string",
-        Variant = "string?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Button"
-    if not Validate(Config, schema) then
-        warn("Button element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Variant = Config.Variant or "Primary"
-        Config.Callback = Config.Callback or function() end
-    end
-
+function Element:New(Config)
+	assert(Config.Title, "Button - Missing Title")
+	Config.Variant = Config.Variant or "Primary"
+	Config.Callback = Config.Callback or function() end
 	local Button = {}
 
-	Button.StyledButton = CreateButton(Config.Variant, Config.Title, context.Container)
-    local library = require(script.Parent.Parent) -- Access the main library for safe callback
-	AddConnection(Button.StyledButton.MouseButton1Click, function(...)
-        library:Callback(Config.Callback, ...)
-    end)
+	Button.StyledButton = CreateButton(Config.Variant, Config.Title, self.Container)
+	Button.StyledButton.MouseButton1Click:Connect(Config.Callback)
 
 	return Button
 end
@@ -2176,99 +1808,47 @@ end
 return Element
 
 end)() end,
-    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals --[[!nl]]--local TweenService = game:GetService("TweenService")
+    [11] = function()local wax,script,require=ImportGlobals(11)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
+local Components = script.Parent.Parent.components
+
+local TweenService = game:GetService("TweenService")
 local LocalPlayer = game:GetService("Players").LocalPlayer
 local mouse = LocalPlayer:GetMouse()
-local RunService = game:GetService("RunService")
-
-local Tools = require(script.Parent.Parent.tools)
-local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local Validate = Tools.Validate
-local RemoveManagedTween = Tools.RemoveManagedTween
-local CancelTween = Tools.CancelTween
 
---[[!nl]]--type ColorpickerConfig = {
-    Title: string,
-    Description: string?,
-    Default: Color3,
-    Transparency: number?,
-    Callback: ((color: Color3) -> ())?,
-}
+local HueSelectionPosition, RainbowColorValue = 0, 0
+local rainbowIncrement, hueIncrement, maxHuePosition = 1 / 255, 1, 127
+coroutine.wrap(function()
+	while true do
+		RainbowColorValue = (RainbowColorValue + rainbowIncrement) % 1
+		HueSelectionPosition = (HueSelectionPosition + hueIncrement) % maxHuePosition
+		wait(0.06)
+	end
+end)()
 
-type ColorpickerContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local HueSelectionPosition, RainbowColorValue = 0, 0
-local RAINBOW_INCREMENT = 1 / 255 
-local HUE_INCREMENT_BASE = 1 
-local MAX_HUE_POSITION = 127 
-
-local rainbowUpdateConnection = nil :: RBXScriptConnection?
-local activeRainbowColorpickers = 0 -- Tracks how many colorpickers have rainbow mode active
-
---[[!nl]]--local function ensureRainbowLoop()
-    if rainbowUpdateConnection and rainbowUpdateConnection.Connected then return end -- Loop already running
-
-    rainbowUpdateConnection = AddConnection(RunService.Heartbeat, function(deltaTime: number)
-        if activeRainbowColorpickers <= 0 then
-            -- Stop loop if no active colorpickers require it
-            if rainbowUpdateConnection then
-                rainbowUpdateConnection:Disconnect()
-                rainbowUpdateConnection = nil
-            end
-            return
-        end
-        -- Scale increment by deltaTime for frame-rate independent animation
-        RainbowColorValue = (RainbowColorValue + RAINBOW_INCREMENT * (deltaTime / Tools.Constants.RAINBOW_LOOP_BASE_DT)) % 1 
-        HueSelectionPosition = (HueSelectionPosition + HUE_INCREMENT_BASE * (deltaTime / Tools.Constants.RAINBOW_LOOP_BASE_DT)) % MAX_HUE_POSITION
-    end)
-end
-
--- Start the loop on module load, it will self-regulate based on activeRainbowColorpickers
-ensureRainbowLoop() 
-
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Colorpicker"
 
---[[!nl]]--function Element:New(context: ColorpickerContext, Idx: string, Config: ColorpickerConfig)
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        Default = "Color3",
-        Transparency = "number?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Colorpicker"
-    if not Validate(Config, schema) then
-        warn("Colorpicker element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Default = Config.Default or Color3.new(1, 0, 0)
-        Config.Transparency = Config.Transparency or 0
-        Config.Callback = Config.Callback or function() end
-    end
+function Element:New(Idx, Config)
+	assert(Config.Title, "Colorpicker - Missing Title")
+	Config.Description = Config.Description or nil
+	assert(Config.Default, "AddColorPicker: Missing default value.")
 
     local Colorpicker = {
         Value = Config.Default,
-        Transparency = Config.Transparency,
+        Transparency = Config.Transparency or 0,
         Type = "Colorpicker",
-        Callback = Config.Callback,
-        RainbowMode = false, 
-        ColorpickerToggle = false,
-        Hue = 0,
-        Sat = 0,
-        Vib = 0,
-        rainbowModeConnection = nil :: RBXScriptConnection?, -- Connection for this specific colorpicker's rainbow mode
+        Callback = Config.Callback or function(Color) end,
+        RainbowColorPicker = false,
+        ColorpickerToggle = false, -- Added missing toggle state
     }
 
-	function Colorpicker:SetHSVFromRGB(Color: Color3)
+	local RainbowColorPicker = Colorpicker.RainbowColorPicker
+
+	function Colorpicker:SetHSVFromRGB(Color)
 		local H, S, V = Color3.toHSV(Color)
 		Colorpicker.Hue = H
 		Colorpicker.Sat = S
@@ -2276,8 +1856,7 @@ Element.__type = "Colorpicker"
 	end
 	Colorpicker:SetHSVFromRGB(Colorpicker.Value)
 
-	local ColorpickerFrame = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+	local ColorpickerFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	local InputFrame = Create("CanvasGroup", {
 		BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -2294,12 +1873,13 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 4),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `InputFrame` to managedUIElements
 
 	local colorBox = Create("Frame", {
 		AnchorPoint = Vector2.new(0, 0.5),
@@ -2317,9 +1897,9 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `colorBox` to managedUIElements
 
 	local inputHex = Create("TextBox", {
 		Font = Enum.Font.GothamMedium,
@@ -2344,19 +1924,16 @@ Element.__type = "Colorpicker"
 			PaddingLeft = UDim.new(0, 12),
 			PaddingRight = UDim.new(0, 12),
 			PaddingTop = UDim.new(0, 0),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `inputHex` to managedUIElements
 
-	AddConnection(inputHex.FocusLost, function(Enter: boolean)
+	AddConnection(inputHex.FocusLost, function(Enter)
 		if Enter then
 			local Success, Result = pcall(Color3.fromHex, inputHex.Text)
 			if Success and typeof(Result) == "Color3" then
-				Colorpicker:Set(Result) -- Update colorpicker through Set function
-			else
-                warn("Invalid hex code entered: ", inputHex.Text)
-                -- Optionally revert text or show an error
-            end
+				Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = Color3.toHSV(Result)
+			end
 		end
 	end)
 
@@ -2378,9 +1955,9 @@ Element.__type = "Colorpicker"
 			PaddingLeft = UDim.new(0, 6),
 			PaddingRight = UDim.new(0, 6),
 			PaddingTop = UDim.new(0, 6),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `colorpicker_frame` to managedUIElements
 
 	local color = Create("ImageLabel", {
 		Image = "rbxassetid://4155801252",
@@ -2392,9 +1969,9 @@ Element.__type = "Colorpicker"
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 8),
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `color` to managedUIElements
 
 	local color_selection = Create("Frame", {
 		BackgroundColor3 = Color3.fromRGB(255, 0, 0),
@@ -2406,6 +1983,7 @@ Element.__type = "Colorpicker"
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(1, 0),
+			Archivable = true,
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
@@ -2413,9 +1991,9 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1.2000000476837158,
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `color_selection` to managedUIElements
 
 	local hue = Create("ImageLabel", {
 		AnchorPoint = Vector2.new(1, 0),
@@ -2427,6 +2005,7 @@ Element.__type = "Colorpicker"
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 9),
+			Archivable = true,
 		}),
 		Create("UIGradient", {
 			Color = ColorSequence.new({
@@ -2441,9 +2020,9 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			Offset = Vector2.new(0, 0),
 			Rotation = 270,
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `hue` to managedUIElements
 
 	local hue_selection = Create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -2458,6 +2037,7 @@ Element.__type = "Colorpicker"
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(1, 0),
+			Archivable = true,
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
@@ -2465,9 +2045,9 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1.2000000476837158,
+			Archivable = true,
 		}),
 	})
-    -- `Create` automatically adds `hue_selection` to managedUIElements
 
 	local rainbowtoggle = Create("TextButton", {
 		Font = Enum.Font.SourceSans,
@@ -2483,46 +2063,7 @@ Element.__type = "Colorpicker"
 		Size = UDim2.new(1, 0, 0, 16),
 		Visible = true,
 		Parent = colorpicker_frame,
-	}, {
-		Create("UICorner", {
-			CornerRadius = UDim.new(0, 5),
-		}),
-		Create("UIStroke", {
-			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-			Color = Color3.fromRGB(250, 250, 250),
-			Enabled = true,
-			LineJoinMode = Enum.LineJoinMode.Round,
-			Thickness = 1,
-		}),
-
-		Create("ImageLabel", {
-			Image = "http://www.roblox.com/asset/?id=6031094667",
-			ImageColor3 = Color3.fromRGB(9, 9, 11),
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-			BackgroundTransparency = 1,
-			BorderColor3 = Color3.fromRGB(0, 0, 0),
-			BorderSizePixel = 0,
-			Position = UDim2.new(0.5, 0, 0.5, 0),
-			Size = UDim2.new(0, 12, 0, 12),
-			Visible = true,
-		}),
-		Create("TextLabel", {
-			Font = Enum.Font.Gotham,
-			Text = "Rainbow",
-			TextColor3 = Color3.fromRGB(234, 234, 234),
-			TextSize = 14,
-			TextXAlignment = Enum.TextXAlignment.Left,
-			BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-			BackgroundTransparency = 1,
-			BorderColor3 = Color3.fromRGB(0, 0, 0),
-			BorderSizePixel = 0,
-			Position = UDim2.new(0, 26, 0, 0),
-			Size = UDim2.new(1, 0, 0, 16),
-			Visible = true,
-		}),
 	})
-    -- `Create` automatically adds `rainbowtoggle` to managedUIElements
 
 	local togglebox = Create("Frame", {
 		BackgroundColor3 = Color3.fromRGB(250, 250, 250),
@@ -2535,6 +2076,7 @@ Element.__type = "Colorpicker"
 	}, {
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 5),
+			Archivable = true,
 		}),
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -2542,6 +2084,7 @@ Element.__type = "Colorpicker"
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 
 		Create("ImageLabel", {
@@ -2571,11 +2114,11 @@ Element.__type = "Colorpicker"
 			Visible = true,
 		}),
 	})
-    -- `Create` automatically adds `togglebox` to managedUIElements
 
+	-- CORREÇÃO 1: Adicionar validação de valores HSV
 	local function UpdateColorPicker()
-        if not (Colorpicker.Hue ~= nil and Colorpicker.Sat ~= nil and Colorpicker.Vib ~= nil) then
-            warn("Missing HSV values in UpdateColorPicker for", Config.Title)
+        if not (Colorpicker.Hue and Colorpicker.Sat and Colorpicker.Vib) then
+            warn("Missing HSV values in UpdateColorPicker")
             return
         end
         
@@ -2589,8 +2132,8 @@ Element.__type = "Colorpicker"
             inputHex.Text = "#" .. newColor:ToHex()
         end
         
-        context.Library:Callback(Colorpicker.Callback, newColor)
-        Colorpicker.Value = newColor
+        -- Call callback safely
+        pcall(Colorpicker.Callback, newColor)
     end
 	
 	local function UpdateColorPickerPosition()
@@ -2600,105 +2143,93 @@ Element.__type = "Colorpicker"
 		Colorpicker.Sat = ColorX / color.AbsoluteSize.X
 		Colorpicker.Vib = 1 - (ColorY / color.AbsoluteSize.Y)
 		UpdateColorPicker()
+		inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
 	end
 	
-	local ColorInputConnectionRef, HueInputConnectionRef = nil, nil -- Use local refs for connections
+	local function UpdateHuePickerPosition()
+		local HueY = math.clamp(mouse.Y - hue.AbsolutePosition.Y, 0, hue.AbsoluteSize.Y)
+		hue_selection.Position = UDim2.new(0.5, 0, HueY / hue.AbsoluteSize.Y, 0)
+		Colorpicker.Hue = HueY / hue.AbsoluteSize.Y
+		UpdateColorPicker()
+		inputHex.Text = "#" .. Color3.fromHSV(Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib):ToHex()
+	end
 	
-	AddConnection(color.InputBegan, function(input: InputObject)
+	local ColorInput, HueInput = nil, nil
+	
+	AddConnection(color.InputBegan, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if Colorpicker.RainbowMode then
+			if RainbowColorPicker then
 				return
 			end
-			if ColorInputConnectionRef then
-				ColorInputConnectionRef:Disconnect()
-                ColorInputConnectionRef = nil
+			if ColorInput then
+				ColorInput:Disconnect()
 			end
-			ColorInputConnectionRef = AddConnection(mouse.Move, UpdateColorPickerPosition)
+			ColorInput = AddConnection(mouse.Move, UpdateColorPickerPosition)
 			UpdateColorPickerPosition()
 		end
 	end)
 	
-	AddConnection(color.InputEnded, function(input: InputObject)
+	AddConnection(color.InputEnded, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if ColorInputConnectionRef then
-				ColorInputConnectionRef:Disconnect()
-				ColorInputConnectionRef = nil
+			if ColorInput then
+				ColorInput:Disconnect()
+				ColorInput = nil
 			end
 		end
 	end)
 	
-	AddConnection(hue.InputBegan, function(input: InputObject)
+	AddConnection(hue.InputBegan, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if Colorpicker.RainbowMode then
+			if RainbowColorPicker then
 				return
 			end
-			if HueInputConnectionRef then
-				HueInputConnectionRef:Disconnect()
-                HueInputConnectionRef = nil
+			if HueInput then
+				HueInput:Disconnect()
 			end
-			HueInputConnectionRef = AddConnection(mouse.Move, UpdateHuePickerPosition)
+			HueInput = AddConnection(mouse.Move, UpdateHuePickerPosition)
 			UpdateHuePickerPosition()
 		end
 	end)
 	
-	AddConnection(hue.InputEnded, function(input: InputObject)
+	AddConnection(hue.InputEnded, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
-			if HueInputConnectionRef then
-				HueInputConnectionRef:Disconnect()
-				HueInputConnectionRef = nil
+			if HueInput then
+				HueInput:Disconnect()
+				HueInput = nil
 			end
 		end
 	end)	
 
 	AddConnection(ColorpickerFrame.Frame.MouseButton1Click, function()
 		Colorpicker.ColorpickerToggle = not Colorpicker.ColorpickerToggle
-        CancelTween(colorpicker_frame, "Visible")
-        TweenService:Create(colorpicker_frame, TweenInfo.new(0.2), {Visible = Colorpicker.ColorpickerToggle}):Play()
-
-        -- If toggling to visible and rainbow mode is active, ensure it updates
-        if Colorpicker.ColorpickerToggle and Colorpicker.RainbowMode then
-            -- Immediately update for visual feedback
-            Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = RainbowColorValue, 1, 1
-            local hueYPos = RainbowColorValue * hue.AbsoluteSize.Y
-            hue_selection.Position = UDim2.new(0.5, 0, hueYPos / hue.AbsoluteSize.Y, 0)
-            color_selection.Position = UDim2.new(1, 0, 0.5, 0) 
-            UpdateColorPicker()
-        end
+		colorpicker_frame.Visible = Colorpicker.ColorpickerToggle
 	end)
 
 	AddConnection(rainbowtoggle.MouseButton1Click, function()
-		Colorpicker.RainbowMode = not Colorpicker.RainbowMode
-		
-        CancelTween(togglebox, "BackgroundTransparency")
+		RainbowColorPicker = not RainbowColorPicker
+		Colorpicker.RainbowMode = RainbowColorPicker -- Update the Colorpicker table
 		TweenService:Create(
 			togglebox,
 			TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-			{ BackgroundTransparency = Colorpicker.RainbowMode and 0 or 1 }
+			{ BackgroundTransparency = RainbowColorPicker and 0 or 1 }
 		):Play()
-
-		if Colorpicker.RainbowMode then
-            activeRainbowColorpickers = activeRainbowColorpickers + 1 -- Increment active count
-            ensureRainbowLoop() -- Ensure the global loop is running
-            
-            -- Immediately update for visual feedback
-            Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = RainbowColorValue, 1, 1
-            local hueYPos = RainbowColorValue * hue.AbsoluteSize.Y
-            hue_selection.Position = UDim2.new(0.5, 0, hueYPos / hue.AbsoluteSize.Y, 0)
-            color_selection.Position = UDim2.new(1, 0, 0.5, 0) 
-            UpdateColorPicker()
-		else
-            activeRainbowColorpickers = math.max(0, activeRainbowColorpickers - 1) -- Decrement active count
-            -- When exiting rainbow mode, set color to last chosen or default if no interaction happened
-            Colorpicker:SetHSVFromRGB(Colorpicker.Value) -- Revert to stored value or default
-            color_selection.Position = UDim2.new(Colorpicker.Sat, 0, 1 - Colorpicker.Vib, 0)
-            hue_selection.Position = UDim2.new(0.5, 0, Colorpicker.Hue, 0)
-            UpdateColorPicker()
+		if RainbowColorPicker then
+			local function UpdateRainbowColor()
+				while RainbowColorPicker do
+					Colorpicker.Hue, Colorpicker.Sat, Colorpicker.Vib = RainbowColorValue, 1, 1
+					hue_selection.Position = UDim2.new(0.5, 0, 0, HueSelectionPosition)
+					hue_selection.Position = UDim2.new(1, -10, 0, 0)
+					UpdateColorPicker()
+					wait()
+				end
+			end
+			coroutine.wrap(UpdateRainbowColor)()
 		end
 	end)
 
-    function Colorpicker:Set(newColor: Color3)
+    function Colorpicker:Set(newColor)
         if typeof(newColor) ~= "Color3" then
-            warn("Invalid color value provided to Colorpicker:Set for", Config.Title, ". Expected Color3, got", typeof(newColor))
+            warn("Invalid color value provided to Set")
             return
         end
         
@@ -2711,83 +2242,38 @@ Element.__type = "Colorpicker"
             hue_selection.Position = UDim2.new(0.5, 0, self.Hue, 0)
             UpdateColorPicker()
         end
-        -- Ensure rainbow mode is off when color is manually set
-        if self.RainbowMode then
-            self.RainbowMode = false
-            activeRainbowColorpickers = math.max(0, activeRainbowColorpickers - 1) -- Decrement active count
-            CancelTween(togglebox, "BackgroundTransparency")
-            TweenService:Create(
-                togglebox,
-                TweenInfo.new(0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                { BackgroundTransparency = 1 }
-            ):Play()
-        end
     end
 
-	context.Library.Flags[Idx] = Colorpicker
+	self.Library.Flags[Idx] = Colorpicker
 	return Colorpicker
 end
 
 return Element
 
 end)() end,
-    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
+    [12] = function()local wax,script,require=ImportGlobals(12)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 local TweenService = game:GetService("TweenService")
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local GetPropsCurrentTheme = Tools.GetPropsCurrentTheme
-local CancelTween = Tools.CancelTween
-local Validate = Tools.Validate
+local CurrentThemeProps = Tools.GetPropsCurrentTheme()
 
---[[!nl]]--type DropdownConfig = {
-    Title: string,
-    Description: string?,
-    Options: {string},
-    Default: string | {string}, -- Single string or table of strings for multiple
-    IgnoreFirst: boolean?,
-    Multiple: boolean?,
-    MaxOptions: number?,
-    PlaceHolder: string?,
-    Callback: ((value: string | {string}) -> ())?,
-}
-
-type DropdownContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Dropdown"
 
---[[!nl]]--function Element:New(context: DropdownContext, Idx: string, Config: DropdownConfig)
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        Options = "table",
-        Default = "any", -- string or table
-        IgnoreFirst = "boolean?",
-        Multiple = "boolean?",
-        MaxOptions = "number?",
-        PlaceHolder = "string?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Dropdown"
-    if not Validate(Config, schema) then
-        warn("Dropdown element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Options = Config.Options or {}
-        Config.Multiple = Config.Multiple or false
-        Config.Default = Config.Default or (Config.Multiple and {} or "")
-        Config.IgnoreFirst = Config.IgnoreFirst or false
-        Config.MaxOptions = Config.MaxOptions or math.huge
-        Config.PlaceHolder = Config.PlaceHolder or ""
-        Config.Callback = Config.Callback or function() end
-    end
+function Element:New(Idx, Config)
+	assert(Config.Title, "Dropdown - Missing Title")
+	Config.Description = Config.Description or nil
+
+	Config.Options = Config.Options or {}
+	Config.Default = Config.Default or ""
+	Config.IgnoreFirst = Config.IgnoreFirst or false
+	Config.Multiple = Config.Multiple or false
+	Config.MaxOptions = Config.MaxOptions or math.huge
+	Config.PlaceHolder = Config.PlaceHolder or ""
+	Config.Callback = Config.Callback or function() end
 
 	local Dropdown = {
 		Value = Config.Default,
@@ -2795,13 +2281,12 @@ Element.__type = "Dropdown"
 		Buttons = {},
 		Toggled = false,
 		Type = "Dropdown",
-		Multiple = Config.Multiple,
-		Callback = Config.Callback,
+		Multiple = Config.Multiple,  -- Add Multiple flag
+		Callback = Config.Callback   -- Store callback
 	}
-	local MaxElements = 5 -- This variable is unused currently
+	local MaxElements = 5
 
-	local DropdownFrame = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+	local DropdownFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	local DropdownElement = Create("Frame", {
 		AutomaticSize = Enum.AutomaticSize.Y,
@@ -2817,13 +2302,16 @@ Element.__type = "Dropdown"
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			-- Color = Color3.fromRGB(24, 24, 26),
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 4),
+			Archivable = true,
 		}),
 		Create("UIListLayout", {
 			Wraps = true,
@@ -2831,7 +2319,6 @@ Element.__type = "Dropdown"
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}, {}),
 	})
-    -- `Create` automatically adds `DropdownElement` to managedUIElements
 
 	local holder = Create("Frame", {
 		AutomaticSize = Enum.AutomaticSize.XY,
@@ -2850,6 +2337,7 @@ Element.__type = "Dropdown"
 			PaddingLeft = UDim.new(0, 6),
 			PaddingRight = UDim.new(0, 6),
 			PaddingTop = UDim.new(0, 4),
+			Archivable = true,
 		}),
 		Create("UIListLayout", {
 			Padding = UDim.new(0, 4),
@@ -2861,7 +2349,6 @@ Element.__type = "Dropdown"
 			FlexMode = Enum.UIFlexMode.Shrink,
 		}, {}),
 	})
-    -- `Create` automatically adds `holder` to managedUIElements
 
 	local search = Create("TextBox", {
 		CursorPosition = -1,
@@ -2886,44 +2373,51 @@ Element.__type = "Dropdown"
 			PaddingLeft = UDim.new(0, 12),
 			PaddingRight = UDim.new(0, 12),
 			PaddingTop = UDim.new(0, 0),
+			Archivable = true,
 		}),
 		Create("UIFlexItem", {
 			FlexMode = Enum.UIFlexMode.Fill,
 		}),
 	})
-    -- `Create` automatically adds `search` to managedUIElements
 
 	local dropcont = Create("Frame", {
+		-- Text = "",
+		-- AutoButtonColor = false,
 		AutomaticSize = Enum.AutomaticSize.Y,
+		-- BackgroundColor3 = Color3.fromRGB(28, 25, 23),
 		ThemeProps = { BackgroundColor3 = "containeritemsbg" },
 		BorderColor3 = Color3.fromRGB(0, 0, 0),
 		BorderSizePixel = 0,
+		-- Position = UDim2.new(0, 0, 0, 80),
 		Size = UDim2.new(1, 0, 0, 0),
 		Visible = false,
 		Parent = DropdownFrame.Frame,
 	}, {
 		Create("UIStroke", {
 			ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+			-- Color = Color3.fromRGB(39, 39, 42),
 			ThemeProps = { Color = "bordercolor" },
 			Enabled = true,
 			LineJoinMode = Enum.LineJoinMode.Round,
 			Thickness = 1,
+			Archivable = true,
 		}),
 		Create("UICorner", {
 			CornerRadius = UDim.new(0, 6),
+			Archivable = true,
 		}),
 		Create("UIPadding", {
 			PaddingBottom = UDim.new(0, 10),
 			PaddingLeft = UDim.new(0, 10),
 			PaddingRight = UDim.new(0, 10),
 			PaddingTop = UDim.new(0, 10),
+			Archivable = true,
 		}),
 		Create("UIListLayout", {
 			Padding = UDim.new(0, 4),
 			SortOrder = Enum.SortOrder.LayoutOrder,
 		}),
 	})
-    -- `Create` automatically adds `dropcont` to managedUIElements
 
 	AddConnection(search.Focused, function()
 		Dropdown.Toggled = true
@@ -2938,7 +2432,7 @@ Element.__type = "Dropdown"
 		for _, v in ipairs(dropcont:GetChildren()) do
 			if v:IsA("TextButton") then
 				local buttonText = string.lower(v.TextLabel.Text)
-				-- Using 'true' for literal search (no patterns)
+				-- CORREÇÃO: Usar busca literal (quarto argumento 'true')
 				if string.find(buttonText, searchText, 1, true) then
 					v.Visible = true
 				else
@@ -2950,7 +2444,7 @@ Element.__type = "Dropdown"
 
 	AddConnection(search.Changed, SearchOptions)
 
-	local function AddOptions(Options: {string})
+	local function AddOptions(Options)
 		for _, Option in pairs(Options) do
 			local check = Create("ImageLabel", {
 				Image = "rbxassetid://15269180838",
@@ -2966,7 +2460,6 @@ Element.__type = "Dropdown"
 				Size = UDim2.new(0, 14, 0, 14),
 				Visible = true,
 			})
-            -- `Create` automatically adds `check` to managedUIElements
 
 			local text_label_2 = Create("TextLabel", {
 				Font = Enum.Font.Gotham,
@@ -2987,9 +2480,9 @@ Element.__type = "Dropdown"
 					PaddingLeft = UDim.new(0, 14),
 					PaddingRight = UDim.new(0, 0),
 					PaddingTop = UDim.new(0, 0),
+					Archivable = true,
 				}),
 			})
-            -- `Create` automatically adds `text_label_2` to managedUIElements
 
 			local dropbtn = Create("TextButton", {
 				Font = Enum.Font.SourceSans,
@@ -3006,26 +2499,29 @@ Element.__type = "Dropdown"
 			}, {
 				Create("UICorner", {
 					CornerRadius = UDim.new(0, 6),
+					Archivable = true,
 				}),
 				text_label_2,
 				check,
 			})
-            -- `Create` automatically adds `dropbtn` to managedUIElements
 
 			AddConnection(dropbtn.MouseButton1Click, function()
 				if Config.Multiple then
 					local index = table.find(Dropdown.Value, Option)
 					if index then
 						table.remove(Dropdown.Value, index)
-					else
-						if #Dropdown.Value < (Config.MaxOptions or math.huge) then
-							table.insert(Dropdown.Value, Option)
+						Dropdown:Set(Dropdown.Value)
+						if #Dropdown.Value == 0 then
+							-- CORREÇÃO FINAL 1: Chamar o callback com uma tabela vazia
+							Config.Callback({})
 						end
+					else
+						Dropdown:Set(Option)
 					end
-					Dropdown:Set(Dropdown.Value)
 				else
 					if Dropdown.Value == Option then
 						Dropdown:Set("")
+						Config.Callback("") 
 					else
 						Dropdown:Set(Option)
 					end
@@ -3041,55 +2537,37 @@ Element.__type = "Dropdown"
 		end
 	end
 
-	function Dropdown:Refresh(Options: {string}, Delete: boolean?)
-        -- Always clean up existing buttons first
-        for _, v in pairs(Dropdown.Buttons) do
-            if v and v.Parent then
-                v:Destroy()
-            end
-        end
-        Dropdown.Buttons = {} -- Clear the table of button references
-
-        -- Then add new options
-        Dropdown.Options = Options
-        AddOptions(Dropdown.Options)
-        
-        -- Re-set value to update UI with new options, if necessary
-        Dropdown:Set(Dropdown.Value, true)
+	function Dropdown:Refresh(Options, Delete)
+		if Delete then
+			for _, v in pairs(Dropdown.Buttons) do
+				v:Destroy()
+			end
+			Dropdown.Buttons = {}
+		end
+		Dropdown.Options = Options
+		AddOptions(Dropdown.Options)
 	end
 
-	function Dropdown:Set(Value: string | {string}, ignore: boolean?)
-		local currentTheme = GetPropsCurrentTheme()
-		local function updateButtonTransparency(button: TextButton, isSelected: boolean)
+	-- CORREÇÃO 2: Tratar corretamente valores vazios em modo múltiplo
+	function Dropdown:Set(Value, ignore)
+		local function updateButtonTransparency(button, isSelected)
 			local transparency = isSelected and 0 or 1
-			local textTransparency = isSelected and currentTheme.itemTextOff or currentTheme.itemTextOn
-			
-            CancelTween(button, "BackgroundTransparency")
+			local textTransparency = isSelected and CurrentThemeProps.itemTextOff or CurrentThemeProps.itemTextOn
 			TweenService:Create(
 				button,
 				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 				{ BackgroundTransparency = transparency }
 			):Play()
-            
-            local imageLabel = button:FindFirstChildOfClass("ImageLabel")
-            if imageLabel then
-                CancelTween(imageLabel, "ImageTransparency")
-                TweenService:Create(
-                    imageLabel,
-                    TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    { ImageTransparency = transparency }
-                ):Play()
-            end
-
-            local textLabel = button:FindFirstChildOfClass("TextLabel")
-            if textLabel then
-                CancelTween(textLabel, "TextColor3")
-                TweenService:Create(
-                    textLabel,
-                    TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-                    { TextColor3 = textTransparency }
-                ):Play()
-            end
+			TweenService:Create(
+				button.ImageLabel,
+				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ ImageTransparency = transparency }
+			):Play()
+			TweenService:Create(
+				button.TextLabel,
+				TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+				{ TextColor3 = textTransparency }
+			):Play()
 		end
 
 		local function clearValueText()
@@ -3100,13 +2578,14 @@ Element.__type = "Dropdown"
 			end
 		end
 
-		local function addValueTag(text: string)
+		local function addValueText(text)
 			local tagBtn = Create("TextButton", {
 				Font = Enum.Font.SourceSans,
 				Text = "",
 				TextColor3 = Color3.fromRGB(255, 255, 255),
 				TextSize = 14,
 				AutomaticSize = Enum.AutomaticSize.X,
+				-- BackgroundColor3 = Color3.fromRGB(39, 39, 42),
 				ThemeProps = { BackgroundColor3 = "valuebg" },
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
 				BorderSizePixel = 0,
@@ -3116,12 +2595,14 @@ Element.__type = "Dropdown"
 			}, {
 				Create("UICorner", {
 					CornerRadius = UDim.new(1, 0),
+					Archivable = true,
 				}),
 				Create("UIPadding", {
 					PaddingBottom = UDim.new(0, 0),
 					PaddingLeft = UDim.new(0, 10),
 					PaddingRight = UDim.new(0, 10),
 					PaddingTop = UDim.new(0, 0),
+					Archivable = true,
 				}),
 				Create("UIListLayout", {
 					Padding = UDim.new(0, 4),
@@ -3142,7 +2623,6 @@ Element.__type = "Dropdown"
 					Size = UDim2.new(0, 0, 1, 0),
 				}, {}),
 			})
-            -- `Create` automatically adds `tagBtn` to managedUIElements
 
 			local closebtn = Create("TextButton", {
 				Font = Enum.Font.SourceSans,
@@ -3171,18 +2651,45 @@ Element.__type = "Dropdown"
 					Visible = true,
 				}, {}),
 			})
-            -- `Create` automatically adds `closebtn` to managedUIElements
-			
-            -- Clicking the tag or close button should remove it
+
+			-- AddConnection(closebtn.MouseButton1Click, function()
+			-- 	if Config.Multiple then
+			-- 		local index = table.find(Dropdown.Value, text)
+			-- 		if index then
+			-- 			tagBtn:Destroy()
+			-- 			table.remove(Dropdown.Value, index)
+			-- 		end
+			-- 	end
+			-- end)
 			AddConnection(tagBtn.MouseButton1Click, function()
 				if Config.Multiple then
 					local index = table.find(Dropdown.Value, text)
 					if index then
 						table.remove(Dropdown.Value, index)
 						Dropdown:Set(Dropdown.Value)
+						if #Dropdown.Value == 0 then
+							Config.Callback({})
+						end
 					end
 				else
 					Dropdown:Set("")
+					Config.Callback("")
+				end
+			end)
+			
+			AddConnection(closebtn.MouseButton1Click, function()
+				if Config.Multiple then
+					local index = table.find(Dropdown.Value, text)
+					if index then
+						table.remove(Dropdown.Value, index)
+						Dropdown:Set(Dropdown.Value)
+						if #Dropdown.Value == 0 then
+							Config.Callback({})
+						end
+					end
+				else
+					Dropdown:Set("")
+					Config.Callback("")
 				end
 			end)
 		end
@@ -3191,7 +2698,7 @@ Element.__type = "Dropdown"
         if Config.Multiple then
             if type(Value) == "table" then
                 Dropdown.Value = Value
-            elseif type(Value) == "string" and Value ~= "" then  -- Only modify if not clearing
+            elseif Value ~= "" then  -- Only modify if not clearing
                 if type(Dropdown.Value) ~= "table" then
                     Dropdown.Value = {}
                 end
@@ -3203,19 +2710,15 @@ Element.__type = "Dropdown"
                         table.insert(Dropdown.Value, Value)
                     end
                 end
-            else -- Value is empty string or nil, meaning clear all for multiple
-                Dropdown.Value = {}
+            else
+                Dropdown.Value = {}  -- Clear the selection
             end
         else
             -- For single selection, just set the value directly
-            if type(Value) == "string" then
-                Dropdown.Value = Value
-            else -- If a table is passed in single mode, use the first value or clear
-                Dropdown.Value = Value[1] or ""
-            end
+            Dropdown.Value = Value
         end
 
-		local found = Config.Multiple or table.find(Dropdown.Options, Dropdown.Value)
+		local found = Config.Multiple or table.find(Dropdown.Options, Value)
 		if Config.Multiple then
 			for i = #Dropdown.Value, 1, -1 do
 				if not table.find(Dropdown.Options, Dropdown.Value[i]) then
@@ -3232,72 +2735,49 @@ Element.__type = "Dropdown"
 			for _, button in pairs(Dropdown.Buttons) do
 				updateButtonTransparency(button, false)
 			end
-			-- The callback with an empty value will be handled below
-		else
-			if Config.Multiple then
-				for _, val in ipairs(Dropdown.Value) do
-					addValueTag(val)
-				end
-			else
-				addValueTag(Dropdown.Value)
+			return
+		end
+
+		if Config.Multiple then
+			for _, val in ipairs(Dropdown.Value) do
+				addValueText(val)
 			end
+		else
+			addValueText(Dropdown.Value)
 		end
 
 		for i, button in pairs(Dropdown.Buttons) do
 			local isSelected = (Config.Multiple and table.find(Dropdown.Value, i))
-				or (not Config.Multiple and i == Dropdown.Value)
+				or (not Config.Multiple and i == Value)
 			updateButtonTransparency(button, isSelected)
 		end
 
 		if not ignore then
-			context.Library:Callback(Config.Callback, Dropdown.Value)
+			Config.Callback(Dropdown.Value)
 		end
 	end
 
 	Dropdown:Refresh(Dropdown.Options, false)
-	Dropdown:Set(Config.Default, Config.IgnoreFirst) -- Initial set with default and ignoreFirst
+	Dropdown:Set(Dropdown.Value, Config.IgnoreFirst)
 
-	context.Library.Flags[Idx] = Dropdown
+	self.Library.Flags[Idx] = Dropdown
 	return Dropdown
 end
 
 return Element
 
 end)() end,
-    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals --[[!nl]]--local Components = script.Parent.Parent.components
-local Tools = require(script.Parent.Parent.tools)
-local Validate = Tools.Validate
+    [13] = function()local wax,script,require=ImportGlobals(13)local ImportGlobals return (function(...)local Components = script.Parent.Parent.components
 
---[[!nl]]--type ParagraphConfig = {
-    Title: string,
-    Description: string?,
-}
-
-type ParagraphContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Paragraph"
 
---[[!nl]]--function Element:New(context: ParagraphContext, Config: ParagraphConfig)
-    local schema = {
-        Title = "string",
-        Description = "string?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Paragraph"
-    if not Validate(Config, schema) then
-        warn("Paragraph element with Title:", Config.Title, "has invalid config.")
-        -- Default values for description are handled by element.lua
-    end
+function Element:New(Config)
+	assert(Config.Title, "Paragraph - Missing Title")
+	Config.Description = Config.Description or nil
 
-	local paragraph = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+	local paragraph = require(Components.element)(Config.Title, Config.Description, self.Container)
 
 	return paragraph
 end
@@ -3305,7 +2785,7 @@ end
 return Element
 
 end)() end,
-    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals --[[!nl]]--local UserInputService = game:GetService("UserInputService")
+    [14] = function()local wax,script,require=ImportGlobals(14)local ImportGlobals return (function(...)local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 
 local Tools = require(script.Parent.Parent.tools)
@@ -3313,29 +2793,7 @@ local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local CancelTween = Tools.CancelTween
-local Validate = Tools.Validate
-local RemoveManagedTween = Tools.RemoveManagedTween
-
---[[!nl]]--type SliderConfig = {
-    Title: string,
-    Description: string?,
-    Min: number?,
-        Max: number?,
-    Increment: number?,
-    Default: number?,
-    IgnoreFirst: boolean?,
-    Callback: ((value: number) -> ())?,
-}
-
-type SliderContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local function Round(Number: number, Factor: number): number
+local function Round(Number, Factor)
     local Result = math.floor(Number / Factor + (math.sign(Number) * 0.5)) * Factor
     if Result < 0 then
         Result = Result + Factor
@@ -3343,33 +2801,20 @@ type SliderContext = {
     return Result
 end
 
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Slider"
 
---[[!nl]]--function Element:New(context: SliderContext, Idx: string, Config: SliderConfig)
-    local Library = context.Library
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        Min = "number?",
-        Max = "number?",
-        Increment = "number?",
-        Default = "number?",
-        IgnoreFirst = "boolean?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Slider"
-    if not Validate(Config, schema) then
-        warn("Slider element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Min = Config.Min or 0
-        Config.Max = Config.Max or 100
-        Config.Increment = Config.Increment or 1
-        Config.Default = Config.Default or (Config.Min + Config.Max) / 2
-        Config.IgnoreFirst = Config.IgnoreFirst or false
-        Config.Callback = Config.Callback or function() end
-    end
+function Element:New(Idx, Config)
+    local Library = self.Library
+    assert(Config.Title, "Slider - Missing Title")
+    Config.Description = Config.Description or nil
+
+    Config.Min = Config.Min or 10
+    Config.Max = Config.Max or 20
+    Config.Increment = Config.Increment or 1
+    Config.Default = Config.Default or 0
+    Config.IgnoreFirst = Config.IgnoreFirst or false
 
     local Slider = {
         Value = Config.Default,
@@ -3377,20 +2822,19 @@ Element.__type = "Slider"
         Max = Config.Max,
         Increment = Config.Increment,
         IgnoreFirst = Config.IgnoreFirst,
-        Callback = Config.Callback,
+        Callback = Config.Callback or function(Value) end,
         Type = "Slider",
     }
 
     local Dragging = false
     local DraggingDot = false
 
-    local SliderFrame = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+    local SliderFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
     local ValueText = Create("TextLabel", {
         Font = Enum.Font.Gotham,
         RichText = true,
-        Text = "0", -- Default text, will be updated by Set
+        Text = "fix it good pls",
         ThemeProps = {
             TextColor3 = "titlecolor",
         },
@@ -3405,7 +2849,6 @@ Element.__type = "Slider"
         Visible = true,
         Parent = SliderFrame.topbox,
     })
-    -- `Create` automatically adds `ValueText` to managedUIElements
 
     local SliderBar = Create("Frame", {
         AnchorPoint = Vector2.new(0.5, 0),
@@ -3419,6 +2862,7 @@ Element.__type = "Slider"
     }, {
         Create("UICorner", {
             CornerRadius = UDim.new(0, 2),
+            Archivable = true,
         }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -3426,9 +2870,9 @@ Element.__type = "Slider"
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
             Thickness = 1,
+            Archivable = true,
         }),
     })
-    -- `Create` automatically adds `SliderBar` to managedUIElements
 
     local SliderProgress = Create("Frame", {
         AnchorPoint = Vector2.new(0, 0.5),
@@ -3442,6 +2886,7 @@ Element.__type = "Slider"
     }, {
         Create("UICorner", {
             CornerRadius = UDim.new(0, 2),
+            Archivable = true,
         }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -3449,17 +2894,18 @@ Element.__type = "Slider"
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
             Thickness = 1,
+            Archivable = true,
         }),
     })
-    -- `Create` automatically adds `SliderProgress` to managedUIElements
 
+    -- Adjusted dot size to 14x14 (smaller than 20x20 but larger than original 10x10)
     local SliderDot = Create("Frame", {
         AnchorPoint = Vector2.new(0.5, 0.5),
         ThemeProps = { BackgroundColor3 = "sliderdotbg" },
         BorderColor3 = Color3.fromRGB(0, 0, 0),
         BorderSizePixel = 0,
         Position = UDim2.new(1, 0, 0.5, 0),
-        Size = UDim2.new(0, 10, 0, 10),
+        Size = UDim2.new(0, 10, 0, 10),  -- Adjusted size
         Visible = true,
         Parent = SliderBar,
     }, {
@@ -3469,21 +2915,23 @@ Element.__type = "Slider"
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
             Thickness = 1,
+            Archivable = true,
         }),
         Create("UICorner", {
             CornerRadius = UDim.new(1, 0),
+            Archivable = true,
         }),
     })
-    -- `Create` automatically adds `SliderDot` to managedUIElements
 
-    function Slider:Set(Value: number, ignore: boolean?)
+    -- CORREÇÃO 5: Prevenir divisão por zero se Min == Max
+    function Slider:Set(Value, ignore)
         self.Value = math.clamp(Round(Value, Config.Increment), Config.Min, Config.Max)
         ValueText.Text = string.format("%s<font transparency='0.5'>/%s </font>", tostring(self.Value), Config.Max)
         
         local range = Config.Max - Config.Min
         if range == 0 then
-            warn("Slider: Min and Max values are equal for", Config.Title, ". Cannot calculate position.")
-            return -- Return to avoid division by zero
+            warn("Slider: Min and Max values are equal. Cannot calculate position.")
+            return -- Adicionado: Retornar para evitar divisão por zero
         end
 
         local newPosition = (self.Value - Config.Min) / range
@@ -3494,33 +2942,25 @@ Element.__type = "Slider"
             SliderProgress.Size = UDim2.fromScale(newPosition, 1)
         else
             -- Smooth tween when not dragging
-            CancelTween(SliderDot, "Position")
-            local dotTween = TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(SliderDot, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Position = UDim2.new(newPosition, 0, 0.5, 0)
-            })
-            Tools.AddManagedTween(dotTween, SliderDot, "Position")
-            dotTween:Play()
-            AddConnection(dotTween.Completed, function() Tools.RemoveManagedTween(dotTween) end)
+            }):Play()
             
-            CancelTween(SliderProgress, "Size")
-            local progressTween = TweenService:Create(SliderProgress, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+            TweenService:Create(SliderProgress, TweenInfo.new(0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
                 Size = UDim2.fromScale(newPosition, 1)
-            })
-            Tools.AddManagedTween(progressTween, SliderProgress, "Size")
-            progressTween:Play()
-            AddConnection(progressTween.Completed, function() Tools.RemoveManagedTween(progressTween) end)
+            }):Play()
         end
         
         if not ignore then
-            return Library:Callback(Config.Callback, self.Value)
+            return Config.Callback(self.Value)
         end
     end
 
-    local function updateSliderFromInput(inputPosition: Vector2)
+    local function updateSliderFromInput(inputPosition)
         if Dragging then
             local barPosition = SliderBar.AbsolutePosition
             local barSize = SliderBar.AbsoluteSize
-            -- Prevent division by zero if barSize.X is 0
+            -- Prevenir divisão por zero se barSize.X for 0
             if barSize.X == 0 then return end 
             local relativeX = (inputPosition.X - barPosition.X) / barSize.X
             local clampedPosition = math.clamp(relativeX, 0, 1)
@@ -3529,14 +2969,14 @@ Element.__type = "Slider"
         end
     end
 
-    AddConnection(SliderBar.InputBegan, function(input: InputObject)
+    AddConnection(SliderBar.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
             updateSliderFromInput(input.Position)
         end
     end)
 
-    AddConnection(SliderDot.InputBegan, function(input: InputObject)
+    AddConnection(SliderDot.InputBegan, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = true
             DraggingDot = true
@@ -3544,14 +2984,14 @@ Element.__type = "Slider"
         end
     end)
 
-    AddConnection(UserInputService.InputEnded, function(input: InputObject)
+    AddConnection(UserInputService.InputEnded, function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             Dragging = false
             DraggingDot = false
         end
     end)
 
-    AddConnection(UserInputService.InputChanged, function(input: InputObject)
+    AddConnection(UserInputService.InputChanged, function(input)
         if Dragging and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
             updateSliderFromInput(input.Position)
         end
@@ -3565,51 +3005,23 @@ end
 
 return Element
 end)() end,
-    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals --[[!nl]]--local Tools = require(script.Parent.Parent.tools)
+    [15] = function()local wax,script,require=ImportGlobals(15)local ImportGlobals return (function(...)local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local Validate = Tools.Validate
-
---[[!nl]]--type TextboxConfig = {
-    Title: string,
-    Description: string?,
-    PlaceHolder: string?,
-    Default: string?,
-    TextDisappear: boolean?,
-    Callback: ((value: string) -> ())?,
-}
-
-type TextboxContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Textbox"
 
---[[!nl]]--function Element:New(context: TextboxContext, Config: TextboxConfig)
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        PlaceHolder = "string?",
-        Default = "string?",
-        TextDisappear = "boolean?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Textbox"
-    if not Validate(Config, schema) then
-        warn("Textbox element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.PlaceHolder = Config.PlaceHolder or ""
-        Config.Default = Config.Default or ""
-        Config.TextDisappear = Config.TextDisappear or false
-        Config.Callback = Config.Callback or function() end
-    end
+function Element:New(Config)
+    assert(Config, "Textbox - Missing Config table")
+    assert(Config.Title, "Textbox - Missing Title")
+    Config.Description = Config.Description or nil
+    Config.PlaceHolder = Config.PlaceHolder or ""
+    Config.Default = Config.Default or ""
+    Config.TextDisappear = Config.TextDisappear or false
+    Config.Callback = Config.Callback or function() end
 
     local Textbox = {
         Value = Config.Default or "",
@@ -3617,8 +3029,7 @@ Element.__type = "Textbox"
         Type = "Textbox",
     }
 
-    local TextboxFrame = require(Components.element)(Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+    local TextboxFrame = require(Components.element)(Config.Title, Config.Description, self.Container)
 
     local textbox = Create("TextBox", {
         CursorPosition = -1,
@@ -3641,6 +3052,7 @@ Element.__type = "Textbox"
             PaddingLeft = UDim.new(0, 12),
             PaddingRight = UDim.new(0, 12),
             PaddingTop = UDim.new(0, 0),
+            Archivable = true,
         }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -3648,22 +3060,23 @@ Element.__type = "Textbox"
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
             Thickness = 1,
+            Archivable = true,
         }),
         Create("UICorner", {
             CornerRadius = UDim.new(0, 4),
+            Archivable = true,
         }),
     })
-    -- `Create` automatically adds `textbox` to managedUIElements
 
-    function Textbox:Set(value: string)
+    function Textbox:Set(value)
         textbox.Text = value
         Textbox.Value = value
-        context.Library:Callback(Config.Callback, value)
+        Config.Callback(value)
     end
 
     AddConnection(textbox.FocusLost, function()
         Textbox.Value = textbox.Text
-        context.Library:Callback(Config.Callback, Textbox.Value)
+        Config.Callback(Textbox.Value)
         if Config.TextDisappear then
             textbox.Text = ""
         end
@@ -3675,63 +3088,33 @@ end
 return Element
 
 end)() end,
-    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals --[[!nl]]--local TweenService = game:GetService("TweenService")
+    [16] = function()local wax,script,require=ImportGlobals(16)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local Tools = require(script.Parent.Parent.tools)
 local Components = script.Parent.Parent.components
 
 local Create = Tools.Create
 local AddConnection = Tools.AddConnection
-local CancelTween = Tools.CancelTween
-local Validate = Tools.Validate
-local RemoveManagedTween = Tools.RemoveManagedTween
 
---[[!nl]]--type ToggleConfig = {
-    Title: string,
-    Description: string?,
-    Default: boolean?,
-    IgnoreFirst: boolean?,
-    Callback: ((value: boolean) -> ())?,
-}
-
-type ToggleContext = {
-    Container: Instance,
-    Type: string,
-    ScrollFrame: Instance,
-    Library: any,
-}
-
---[[!nl]]--local Element = {}
+local Element = {}
 Element.__index = Element
 Element.__type = "Toggle"
 
---[[!nl]]--function Element:New(context: ToggleContext, Idx: string, Config: ToggleConfig)
-    local Library = context.Library
-    local schema = {
-        Title = "string",
-        Description = "string?",
-        Default = "boolean?",
-        IgnoreFirst = "boolean?",
-        Callback = "function?",
-    }
-    -- Ensure Config.Title is available for warn message even if validation fails
-    Config.Title = Config.Title or "Toggle"
-    if not Validate(Config, schema) then
-        warn("Toggle element with Title:", Config.Title, "has invalid config, using defaults.")
-        Config.Default = Config.Default or false
-        Config.IgnoreFirst = Config.IgnoreFirst or false
-        Config.Callback = Config.Callback or function() end
-    end
+function Element:New(Idx, Config)
+    local Library = self.Library
+    assert(Config.Title, "Toggle - Missing Title")
+    Config.Description = Config.Description or nil
+    Config.Default = Config.Default or false
+    Config.IgnoreFirst = Config.IgnoreFirst or false
 
     local Toggle = {
         Value = Config.Default,
-        Callback = Config.Callback,
+        Callback = Config.Callback or function(Value) end,
         IgnoreFirst = Config.IgnoreFirst,
-        FirstUpdate = true,
+        FirstUpdate = true, -- CORREÇÃO 7: Adicionar inicialização para FirstUpdate
         Type = "Toggle",
     }
 
-    local ToggleFrame = require(Components.element)("        " .. Config.Title, Config.Description, context.Container)
-    -- Element component already adds it to managed UI elements
+    local ToggleFrame = require(Components.element)("        " .. Config.Title, Config.Description, self.Container)
 
     local box_frame = Create("Frame", {
         ThemeProps = {
@@ -3745,6 +3128,7 @@ Element.__type = "Toggle"
     }, {
         Create("UICorner", {
             CornerRadius = UDim.new(0, 5),
+            Archivable = true,
         }),
         Create("UIStroke", {
             ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
@@ -3754,9 +3138,11 @@ Element.__type = "Toggle"
             Enabled = true,
             LineJoinMode = Enum.LineJoinMode.Round,
             Thickness = 1,
+            Archivable = true,
         }),
         Create("ImageLabel", {
             Image = "http://www.roblox.com/asset/?id=6031094667",
+            -- ImageColor3 = Color3.fromRGB(9, 9, 9),
             ThemeProps = {
                 ImageColor3 = "maincolor"
             },
@@ -3770,16 +3156,10 @@ Element.__type = "Toggle"
             Visible = true,
         })
     })
-    -- `Create` automatically adds `box_frame` to managedUIElements
 
-    function Toggle:Set(Value: boolean, ignore: boolean?)
+    function Toggle:Set(Value, ignore)
         self.Value = Value
-        CancelTween(box_frame, "BackgroundTransparency")
-        local tween = TweenService:Create(box_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = self.Value and 0 or 1})
-        Tools.AddManagedTween(tween, box_frame, "BackgroundTransparency")
-        tween:Play()
-        AddConnection(tween.Completed, function() RemoveManagedTween(tween) end)
-
+        TweenService:Create(box_frame, TweenInfo.new(0.25, Enum.EasingStyle.Quart, Enum.EasingDirection.Out), {BackgroundTransparency = self.Value and 0 or 1}):Play()
         if not ignore and (not self.IgnoreFirst or not self.FirstUpdate) then
             Library:Callback(Toggle.Callback, self.Value)
         end
@@ -3799,188 +3179,63 @@ end
 return Element
 
 end)() end,
-    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals --[[!nl]]--local TweenService = game:GetService("TweenService")
+    [17] = function()local wax,script,require=ImportGlobals(17)local ImportGlobals return (function(...)local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 
---[[!nl]]---- Centralized types for better code quality and Luau support
-export type ColorConfig = {
-    TextColor3: Color3?,
-    BackgroundColor3: Color3?,
-    ImageColor3: Color3?,
-    BorderColor3: Color3?,
-}
+local tools = { Signals = {} }
 
-export type Theme = {
-    maincolor: Color3,
-    bordercolor: Color3,
-    titlecolor: Color3,
-    descriptioncolor: Color3,
-    offTextBtn: Color3,
-    onTextBtn: Color3,
-    offBgLineBtn: Color3,
-    onBgLineBtn: Color3,
-    scrollcolor: Color3,
-    elementdescription: Color3,
-    primarycolor: Color3,
-    containeritemsbg: Color3,
-    itemcheckmarkcolor: Color3,
-    itembg: Color3,
-    itemTextOff: Color3,
-    itemTextOn: Color3,
-    valuebg: Color3,
-    valuetext: Color3,
-    sliderbar: Color3,
-    sliderbarstroke: Color3,
-    sliderprogressbg: Color3,
-    sliderprogressborder: Color3,
-    sliderdotbg: Color3,
-    sliderdotstroke: Color3,
-    togglebg: Color3,
-    toggleborder: Color3,
-}
+local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))()
 
-export type Config = {
-    Title: string,
-    Description: string?,
-    Default: any,
-    Callback: ((value: any) -> ())?,
-    -- ... other config properties specific to each element type
-}
+local currentTheme = themes.default
+local themedObjects = {}
 
--- ManagedTweenEntry is now optimized for O(1) lookup
-type ManagedTweenEntry = Tween 
-
---[[!nl]]--local tools = {
-    Signals = {} :: {[number]: RBXScriptConnection}, -- Store all connections
-    -- managedTweens is now indexed by object and property for O(1) lookup
-    managedTweens = {} :: {[Instance]: {[string]: ManagedTweenEntry}}, 
-    themedObjects = {} :: {[Instance]: ColorConfig}, -- Stores objects whose colors are theme-dependent
-    managedUIElements = {} :: {[Instance]: boolean}, -- Stores all UI elements created by tools.Create for cleanup
-    
-    Constants = {
-        CLEANUP_CHECK_INTERVAL = 1, -- seconds
-        ELEMENT_NAME = "Element",
-        SECTION_NAME = "Section",
-        SECTION_CONTAINER_NAME = "SectionContainer",
-        ELEMENT_TITLE_NAME = "Title",
-        ELEMENT_DESCRIPTION_NAME = "Description",
-        TAB_TYPE = "Tab",
-        GROUP_BUTTON_TYPE = "Group",
-        RAINBOW_LOOP_BASE_DT = 0.06, -- Base deltaTime for rainbow loop scaling
-    },
-}
-
---[[!nl]]--local themes = loadstring(game:HttpGet("https://raw.githubusercontent.com/Just3itx/3itx-UI-LIB/refs/heads/main/themes"))() :: {[string]: Theme}
-
-local currentTheme = themes.default :: Theme
-local lastAppliedTheme: string? = nil -- Cache last applied theme name
-
---[[!nl]]--function tools.SetTheme(themeName: string)
-    if lastAppliedTheme == themeName then return end -- Only re-apply if theme actually changed
-    
-    if themes[themeName] then
+function tools.SetTheme(themeName)
+	if themes[themeName] then
 		currentTheme = themes[themeName]
-        lastAppliedTheme = themeName
-		for obj, props in pairs(tools.themedObjects) do
-            if obj and obj.Parent then -- Only update if object exists and is parented
-                for propName, themeKey in next, props do
-                    if currentTheme[themeKey] then
-                        obj[propName] = currentTheme[themeKey]
-                    end
-                end
-            else
-                tools.themedObjects[obj] = nil -- Clean up nil references in theme tracking
-            end
+		for _, item in pairs(themedObjects) do
+			local obj = item.object
+			local props = item.props
+			for propName, themeKey in next, props do
+				if currentTheme[themeKey] then
+					obj[propName] = currentTheme[themeKey]
+				end
+			end
 		end
 	else
 		warn("Theme not found: " .. themeName)
 	end
 end
 
---[[!nl]]--function tools.GetPropsCurrentTheme(): Theme
+function tools.GetPropsCurrentTheme()
 	return currentTheme
 end
 
---[[!nl]]--function tools.AddTheme(themeName: string, themeProps: Theme)
+function tools.AddTheme(themeName, themeProps)
 	themes[themeName] = themeProps
 end
 
---[[!nl]]--function tools.isMobile(): boolean
+function tools.isMobile()
     return UserInputService.TouchEnabled and not UserInputService.KeyboardEnabled and not UserInputService.MouseEnabled
-	-- return true -- For testing mobile UI
+	-- return true
 end
 
---[[!nl]]--function tools.AddConnection(Signal: RBXScriptSignal, Function: (...any) -> any): RBXScriptConnection
+function tools.AddConnection(Signal, Function)
+	-- if not Library:IsRunning() then return end
 	local connection = Signal:Connect(Function)
 	table.insert(tools.Signals, connection)
 	return connection -- Return the connection so it can be disconnected later
 end
 
---[[!nl]]--function tools.Disconnect()
+function tools.Disconnect()
 	for key = #tools.Signals, 1, -1 do
 		local Connection = table.remove(tools.Signals, key)
-        if Connection and Connection.Connected then
-		    Connection:Disconnect()
-        end
+		Connection:Disconnect()
 	end
-    tools.Signals = {} -- Clear the table after disconnecting
 end
 
---[[!nl]]--function tools.AddManagedTween(tween: Tween, object: Instance, property: string)
-    if not tools.managedTweens[object] then
-        tools.managedTweens[object] = {}
-    end
-    -- Overwrite any existing tween for this object and property
-    tools.managedTweens[object][property] = tween 
-end
-
---[[!nl]]--function tools.RemoveManagedTween(tween: Tween)
-    -- Iterate through managedTweens to find and remove the specific tween
-    for obj, propTable in pairs(tools.managedTweens) do
-        for prop, storedTween in pairs(propTable) do
-            if storedTween == tween then
-                propTable[prop] = nil
-                -- Clean up object table if no more tweens for it
-                if next(propTable) == nil then
-                    tools.managedTweens[obj] = nil
-                end
-                return -- Tween found and removed
-            end
-        end
-    end
-end
-
---[[!nl]]--function tools.CancelTween(object: Instance, property: string)
-    if not tools.managedTweens[object] then return end
-    local tween = tools.managedTweens[object][property]
-    if tween and tween.PlaybackState == Enum.PlaybackState.Playing then
-        tween:Cancel()
-    end
-    -- Remove the tween reference after cancellation
-    if tools.managedTweens[object] then
-        tools.managedTweens[object][property] = nil
-        -- Clean up object table if no more tweens for it
-        if next(tools.managedTweens[object]) == nil then
-            tools.managedTweens[object] = nil
-        end
-    end
-end
-
---[[!nl]]--function tools.AddManagedUIElement(element: Instance)
-    tools.managedUIElements[element] = true
-end
-
---[[!nl]]--function tools.RemoveManagedUIElement(element: Instance)
-    tools.managedUIElements[element] = nil
-end
-
---[[!nl]]--function tools.RemoveThemedObject(object: Instance)
-    tools.themedObjects[object] = nil
-end
-
---[[!nl]]--function tools.Create(Name: string, Properties: {[string]: any}, Children: {Instance}?)
-	local Object = Instance.new(Name) :: Instance
+function tools.Create(Name, Properties, Children)
+	local Object = Instance.new(Name)
 
 	if Properties.ThemeProps then
 		for propName, themeKey in next, Properties.ThemeProps do
@@ -3988,7 +3243,7 @@ end
 				Object[propName] = currentTheme[themeKey]
 			end
 		end
-		tools.themedObjects[Object] = Properties.ThemeProps -- Store for theme updates
+		table.insert(themedObjects, { object = Object, props = Properties.ThemeProps })
 		Properties.ThemeProps = nil
 	end
 
@@ -3998,29 +3253,21 @@ end
 	for i, v in next, Children or {} do
 		v.Parent = Object
 	end
-
-    tools.AddManagedUIElement(Object) -- Track all created UI elements
-
 	return Object
 end
 
---[[!nl]]--function tools.AddScrollAnim(scrollbar: ScrollingFrame)
-    -- Ensure all internal connections of AddScrollAnim are also managed
+function tools.AddScrollAnim(scrollbar)
 	local visibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 0 })
-    tools.AddManagedTween(visibleTween, scrollbar, "ScrollBarImageTransparency_Visible")
 	local invisibleTween = TweenService:Create(scrollbar, TweenInfo.new(0.25), { ScrollBarImageTransparency = 1 })
-    tools.AddManagedTween(invisibleTween, scrollbar, "ScrollBarImageTransparency_Invisible")
 	local lastInteraction = tick()
 	local delayTime = 0.6
 
 	local function showScrollbar()
-        tools.CancelTween(scrollbar, "ScrollBarImageTransparency_Invisible") -- Cancel hide if showing
 		visibleTween:Play()
 	end
 
 	local function hideScrollbar()
 		if tick() - lastInteraction >= delayTime then
-            tools.CancelTween(scrollbar, "ScrollBarImageTransparency_Visible") -- Cancel show if hiding
 			invisibleTween:Play()
 		end
 	end
@@ -4031,10 +3278,11 @@ end
 	end)
 
 	tools.AddConnection(scrollbar.MouseLeave, function()
-		task.delay(delayTime, hideScrollbar) -- Use task.delay instead of wait() for robustness
+		wait(delayTime)
+		hideScrollbar()
 	end)
 
-	tools.AddConnection(scrollbar.InputChanged, function(input: InputObject)
+	tools.AddConnection(scrollbar.InputChanged, function(input)
 		if
 			input.UserInputType == Enum.UserInputType.MouseMovement
 			or input.UserInputType == Enum.UserInputType.Touch
@@ -4049,7 +3297,7 @@ end
 		showScrollbar()
 	end)
 
-	tools.AddConnection(UserInputService.InputChanged, function(input: InputObject)
+	tools.AddConnection(UserInputService.InputChanged, function(input)
 		if input.UserInputType == Enum.UserInputType.MouseWheel then
 			lastInteraction = tick()
 			showScrollbar()
@@ -4061,41 +3309,6 @@ end
 			hideScrollbar()
 		end
 	end)
-end
-
---[[!nl]]--function tools.Validate(config: {[string]: any}, schema: {[string]: string}): boolean
-    local isValid = true
-    for key, expectedType in pairs(schema) do
-        local value = config[key]
-        local actualType = typeof(value)
-
-        local isOptional = string.find(expectedType, "?")
-        local baseExpectedType = string.gsub(expectedType, "?", "")
-
-        if value == nil then
-            if not isOptional then
-                warn(`Validation failed for key '{key}': Expected value, but got nil. Schema: '{expectedType}'`)
-                isValid = false
-            end
-        elseif baseExpectedType ~= "any" and actualType ~= baseExpectedType then
-            -- Special handling for EnumItems if expected type is "string" (e.g., variant names)
-            if baseExpectedType == "string" and typeof(value) == "EnumItem" then
-                -- Allow EnumItem.Name to be treated as string
-            elseif baseExpectedType == "number" and (actualType == "number" or actualType == "Vector2" or actualType == "UDim") then
-                -- Allow common number-like types
-            elseif baseExpectedType == "boolean" and actualType == "boolean" then
-                -- Standard boolean check
-            elseif baseExpectedType == "Color3" and actualType == "Color3" then
-                -- Standard Color3 check
-            elseif baseExpectedType == "table" and actualType == "table" then
-                -- Standard table check
-            else
-                warn(`Validation failed for key '{key}': Expected type '{baseExpectedType}', but got '{actualType}'. Schema: '{expectedType}'`)
-                isValid = false
-            end
-        end
-    end
-    return isValid
 end
 
 return tools
@@ -4246,10 +3459,10 @@ local LineOffsets = {
     [11] = 1777,
     [12] = 2219,
     [13] = 2732,
-    [14] = 2961,
-    [15] = 3048,
-    [16] = 3138,
-    [17] = 3302
+    [14] = 2750,
+    [15] = 2961,
+    [16] = 3048,
+    [17] = 3138
 }
 
 -- Misc AOT variable imports
